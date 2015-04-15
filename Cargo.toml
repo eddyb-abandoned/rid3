@@ -1,0 +1,19 @@
+[package]
+name = "r3"
+version = "0.0.1"
+authors = ["Eduard-Mihai Burtescu <edy.burt@gmail.com>"]
+
+[dependencies.piston]
+git = "https://github.com/PistonDevelopers/piston"
+
+[dependencies.pistoncore-glutin_window]
+git = "https://github.com/PistonDevelopers/glutin_window"
+
+[dependencies.piston2d-graphics]
+git = "https://github.com/PistonDevelopers/graphics"
+
+[dependencies.piston2d-gfx_graphics]
+git = "https://github.com/PistonDevelopers/gfx_graphics"
+
+[dependencies.gfx_device_gl]
+git = "https://github.com/gfx-rs/gfx_device_gl"
