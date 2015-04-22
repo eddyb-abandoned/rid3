@@ -263,6 +263,7 @@ impl<'a, T: Domain> fmt::Debug for Constraint<'a, T> {
     }
 }
 
+// Invariant: constraints' first term always has factor=1.
 pub struct System<'a, T: 'a + Domain> {
     var_arena: &'a TypedArena<Cell<T>>,
     variables: Vec<Variable<'a, T>>,
@@ -337,7 +338,7 @@ impl<'a, T: Domain> System<'a, T> {
         //println!("{:?}", self);
         let mut age = 0;
         loop {
-            while self.constraints.len() > age {
+            'simplify: while self.constraints.len() > age {
                 let mut modified = false;
                 let c = self.constraints.pop_front().unwrap();
                 //.normalize();
@@ -353,7 +354,6 @@ impl<'a, T: Domain> System<'a, T> {
                         true
                     }
                 }).collect();
-                terms.sort_by(|a, b| a.var.cmp(&b.var));
 
                 {
                     let old_bounds = bounds;
@@ -363,21 +363,36 @@ impl<'a, T: Domain> System<'a, T> {
                     }
                 }
 
+                terms.sort_by(|a, b| a.var.cmp(&b.var));
+
+                // Normalize terms so that the first one has factor=1.
+                if !terms.is_empty() {
+                    let f = terms[0].factor;
+                    if f != T::one() {
+                        for t in &mut terms {
+                            t.factor = t.factor / f;
+                        }
+                        bounds = bounds / f;
+                    }
+                }
+
                 if terms.is_empty() {
                     modified = true;
                 } else if terms.len() == 1 {
                     let t = terms[0];
-                    t.var.restrict(bounds / t.factor);
+                    assert_eq!(t.factor, T::one());
+                    t.var.restrict(bounds);
                     modified = true;
                 } else {
                     // Opportunistic a - b range reduction.
                     if terms.len() == 2 {
                         let (a, b) = (terms[0], terms[1]);
-                        if a.factor == -b.factor {
+                        assert_eq!(a.factor, T::one());
+                        if b.factor == -T::one() {
                             let (a_bounds, b_bounds) = (a.var.bounds(), b.var.bounds());
 
-                            a.var.restrict(b_bounds + bounds / a.factor);
-                            b.var.restrict(a_bounds + bounds / b.factor);
+                            a.var.restrict(b_bounds + bounds);
+                            b.var.restrict(a_bounds - bounds);
 
                             if a_bounds != a.var.bounds() || b_bounds != b.var.bounds() {
                                 modified = true;
@@ -448,41 +463,40 @@ impl<'a, T: Domain> System<'a, T> {
             for i in 0..constraints.len() {
                 let (a, b, bounds) = {
                     let c = &constraints[i];
-                    if c.terms.len() != 2 || c.terms[0].factor != -c.terms[1].factor {
+                    if c.terms.len() != 2 || c.terms[1].factor != -T::one() {
                         continue;
                     }
-                    (c.terms[0], c.terms[1], c.bounds / c.terms[0].factor)
+                    assert_eq!(c.terms[0].factor, T::one());
+                    (c.terms[0], c.terms[1], c.bounds)
+                };
+
+                // Normalize to a <= b, with bounds = b - a.
+                let (a, b, bounds) = if bounds.min >= T::zero() {
+                    (b, a, bounds)
+                } else {
+                    (a, b, -bounds)
                 };
 
                 // We can't know the ordering.
-                if bounds == Bounds::equal(T::zero()) {
+                if bounds.max <= T::zero() {
                     continue;
                 }
 
-                #[derive(Copy, Clone)]
+                let mut q = VecDeque::new();
+                q.push_back(a.var);
+                q.push_back(b.var);
+
+                #[derive(Copy, Clone, Debug)]
                 enum Span<T> {
                     Flex(T),
                     Fixed(T)
                 }
 
-                let span = if bounds.min != bounds.max {
-                    Span::Flex(T::one())
-                } else {
-                    Span::Fixed(bounds.min.abs())
-                };
-
-                let mut q = VecDeque::new();
                 let mut s = VecDeque::new();
-                if bounds.max <= T::zero() {
-                    // a <= b
-                    q.push_back(a.var);
-                    q.push_back(b.var);
-                } else if bounds.min >= T::zero() {
-                    // b <= a
-                    q.push_back(b.var);
-                    q.push_back(a.var);
+                let span = if bounds.min == bounds.max {
+                    Span::Fixed(bounds.min)
                 } else {
-                    continue;
+                    Span::Flex(T::one())
                 };
                 s.push_back(span);
 
@@ -512,18 +526,19 @@ impl<'a, T: Domain> System<'a, T> {
                         if cs[j].is_some() || c.terms.len() != 2 {
                             continue;
                         }
-                        if c.terms[0].factor != -c.terms[1].factor {
+                        if c.terms[1].factor != -T::one() {
                             continue;
                         }
+                        assert_eq!(c.terms[0].factor, T::one());
 
                         let a = c.terms[0];
                         let b = c.terms[1];
-                        let bounds = c.bounds / a.factor;
+                        let bounds = c.bounds;
 
-                        let span = if bounds.min != bounds.max {
-                            Span::Flex(T::one())
-                        } else {
+                        let span = if bounds.min == bounds.max {
                             Span::Fixed(bounds.min.abs())
+                        } else {
+                            Span::Flex(T::one())
                         };
 
                         let q_len = q.len();
