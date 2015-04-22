@@ -3,13 +3,14 @@ use std::default::Default;
 
 use gfx::Color;
 
-use ui::layout::{RectBB, RectBounded, ConstrainCx, Layout, Hit};
+use ui::layout::{RectBB, RectBounded, ConstrainCx, Layout, Where};
 use ui::draw::{Draw, DrawCx};
-use ui::event::{MouseDown, MouseUp};
+use ui::event::{Dispatch, MouseDown, MouseUp, MouseMove};
 use ui::text::Label;
 
 pub struct Demo {
     pub bb: RectBB,
+    pub over: Cell<bool>,
     pub down: Cell<bool>,
     pub label: Label
 }
@@ -18,6 +19,7 @@ impl Demo {
     pub fn new([r, g, b]: [f32; 3], name: &'static str) -> Demo {
         Demo {
             bb: RectBB::default(),
+            over: Cell::new(false),
             down: Cell::new(false),
             label: Label::new([r, g, b, 1.0], name)
         }
@@ -54,8 +56,9 @@ impl Draw for Demo {
             [1.0 - r, 1.0 - g, 1.0 - b, a]
         }
 
+        let pressed = self.over.get() && self.down.get();
         let color = self.label.color.get();
-        let (foreground, background) = if self.down.get() {
+        let (foreground, background) = if pressed {
             (invert_rgb(color), color)
         } else {
             (color, invert_rgb(color))
@@ -72,14 +75,20 @@ impl Draw for Demo {
     }
 }
 
-impl Hit<MouseDown> for Demo {
-    fn hit(&self, _: MouseDown) {
+impl Dispatch<MouseDown> for Demo {
+    fn dispatch(&self, _: &MouseDown) {
         self.down.set(true);
     }
 }
 
-impl Hit<MouseUp> for Demo {
-    fn hit(&self, _: MouseUp) {
+impl Dispatch<MouseUp> for Demo {
+    fn dispatch(&self, _: &MouseUp) {
         self.down.set(false);
+    }
+}
+
+impl Dispatch<MouseMove> for Demo {
+    fn dispatch(&self, ev: &MouseMove) {
+        self.over.set(self.bb().contains(ev.pos()));
     }
 }

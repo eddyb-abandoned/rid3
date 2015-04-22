@@ -32,6 +32,10 @@ impl<T> BB<T> {
             x2: f(self.x2, "x2"), y2: f(self.y2, "y2")
         }
     }
+
+    pub fn contains(&self, [x, y]: [T; 2]) -> bool where T: PartialOrd {
+        self.x1 <= x && x <= self.x2 && self.y1 <= y && y <= self.y2
+    }
 }
 
 macro_rules! tlist {

@@ -1,7 +1,26 @@
 use std::default::Default;
 
-use ui::Px;
+use ui::{Px, Flow};
 use ui::layout::Where;
+
+pub trait Dispatch<E> {
+    fn dispatch(&self, _ev: &E) {}
+}
+
+impl<D, K, E> Dispatch<E> for Flow<D, K> where K: Dispatch<E> {
+    fn dispatch(&self, ev: &E) {
+        self.kids.dispatch(ev)
+    }
+}
+
+impl<A, B, E> Dispatch<E> for (A, B) where
+           A: Dispatch<E>,
+           B: Dispatch<E> {
+    fn dispatch(&self, ev: &E) {
+        self.0.dispatch(ev);
+        self.1.dispatch(ev);
+    }
+}
 
 pub struct Mouse<T> {
     pub x: Px,
@@ -20,8 +39,8 @@ impl<T: Default> Mouse<T> {
 }
 
 impl<T> Where for Mouse<T> {
-    fn pos(&self) -> (Px, Px) {
-        (self.x, self.y)
+    fn pos(&self) -> [Px; 2] {
+        [self.x, self.y]
     }
 }
 
@@ -32,8 +51,11 @@ pub mod mouse {
     pub struct Up;
     #[derive(Default)]
     pub struct Click;
+    #[derive(Default)]
+    pub struct Move;
 }
 
 pub type MouseDown = Mouse<mouse::Down>;
 pub type MouseUp = Mouse<mouse::Up>;
 pub type MouseClick = Mouse<mouse::Click>;
+pub type MouseMove = Mouse<mouse::Move>;

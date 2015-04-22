@@ -782,7 +782,7 @@ pub trait Hit<H> {
 }
 
 pub trait Where {
-    fn pos(&self) -> (Px, Px);
+    fn pos(&self) -> [Px; 2];
 }
 
 pub trait FlowHit<D, H> {
@@ -808,7 +808,7 @@ impl<D, A, B, H> FlowHit<D, H> for (A, B) where
            D: Copy,
            Dir: From<D> {
     fn hit(&self, dir: D, hit: H) {
-        let (x, y) = hit.pos();
+        let [x, y] = hit.pos();
         let a = self.0.bb();
 
         let in_a = match Dir::from(dir) {

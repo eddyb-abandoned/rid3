@@ -33,8 +33,8 @@ use glutin_window::{GlutinWindow, OpenGL};
 #[macro_use]
 pub mod ui;
 use ui::Px;
-use ui::layout::Hit;
 use ui::draw::DrawCx;
+use ui::event::Dispatch;
 use ui::text::FontFaces;
 
 pub mod demo;
@@ -95,16 +95,17 @@ fn main() {
         }
 
         if let Some(Button::Mouse(MouseButton::Left)) = e.press_args() {
-            root.hit(ui::event::MouseDown::new(x, y));
+            root.dispatch(&ui::event::MouseDown::new(x, y));
         }
 
         if let Some(Button::Mouse(MouseButton::Left)) = e.release_args() {
-            root.hit(ui::event::MouseUp::new(x, y));
+            root.dispatch(&ui::event::MouseUp::new(x, y));
         }
 
         if let Some([nx, ny]) = e.mouse_cursor_args() {
             x = nx as Px;
             y = ny as Px;
+            root.dispatch(&ui::event::MouseMove::new(x, y));
         }
     }
 }
