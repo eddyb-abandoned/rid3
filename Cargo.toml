@@ -15,5 +15,8 @@ git = "https://github.com/PistonDevelopers/graphics"
 [dependencies.piston2d-gfx_graphics]
 git = "https://github.com/PistonDevelopers/gfx_graphics"
 
+[dependencies.gfx]
+git = "https://github.com/gfx-rs/gfx-rs"
+
 [dependencies.gfx_device_gl]
 git = "https://github.com/gfx-rs/gfx_device_gl"
