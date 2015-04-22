@@ -218,7 +218,7 @@ impl<'a, T: Domain> fmt::Debug for Variable<'a, T> {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 struct Term<'a, T: 'a + Domain> {
     factor: T,
     var: Variable<'a, T>
@@ -373,6 +373,14 @@ impl<'a, T: Domain> System<'a, T> {
                             t.factor = t.factor / f;
                         }
                         bounds = bounds / f;
+                    }
+                }
+
+                // Try to merge this constraint with an existing one.
+                for c in &mut self.constraints {
+                    if c.terms == terms {
+                        c.bounds.restrict(bounds);
+                        continue 'simplify;
                     }
                 }
 
@@ -603,6 +611,7 @@ impl<'a, T: Domain> System<'a, T> {
                         q.pop_front().unwrap().assign(val);
                     }
                     age = 0;
+                    break;
                 }
             }
 
