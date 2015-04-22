@@ -1,6 +1,7 @@
 pub mod layout;
 pub mod draw;
 pub mod event;
+pub mod text;
 
 pub type Px = f32;
 

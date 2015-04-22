@@ -3,9 +3,10 @@ use std::cell::Cell;
 use std::cmp::Ordering;
 use std::collections::VecDeque;
 use std::fmt;
-use std::ops::{Add, Div, Mul, Neg, Sub};
+use std::ops::{Add, Div, Mul, Neg, Sub, Deref, DerefMut};
 
 use ui::{Px, BB, Flow, Dir};
+use ui::text;
 
 pub trait Domain: Copy + PartialOrd + fmt::Debug +
                   Neg<Output=Self> +
@@ -148,7 +149,7 @@ impl<T: Domain> Sub for Bounds<T> {
 
 // NB: The min reference goes to actual data, while max is temporary.
 #[derive(Copy, Clone)]
-struct Variable<'a, T: 'a + Domain> {
+pub struct Variable<'a, T: 'a + Domain> {
     min: &'a Cell<T>,
     max: &'a Cell<T>,
     name: [&'static str; 2]
@@ -309,18 +310,22 @@ impl<'a, T: Domain> System<'a, T> {
         bb
     }
 
-    fn equal(&mut self, a: Variable<'a, T>, b: Variable<'a, T>) {
+    pub fn equal(&mut self, a: Variable<'a, T>, b: Variable<'a, T>) {
+        self.distance(b, a, T::zero())
+    }
+
+    pub fn distance(&mut self, a: Variable<'a, T>, b: Variable<'a, T>, x: T) {
         self.constraints.push_back(Constraint {
             terms: vec![
-                Term { factor: T::one(), var: a },
-                Term { factor: -T::one(), var: b }
+                Term { factor: T::one(), var: b },
+                Term { factor: -T::one(), var: a }
             ],
             priority: 0,
-            bounds: Bounds::equal(T::zero())
+            bounds: Bounds::equal(x)
         })
     }
 
-    fn order(&mut self, a: Variable<'a, T>, b: Variable<'a, T>) {
+    pub fn order(&mut self, a: Variable<'a, T>, b: Variable<'a, T>) {
         self.constraints.push_back(Constraint {
             terms: vec![
                 Term { factor: T::one(), var: a },
@@ -638,10 +643,13 @@ impl<'a, T: Domain> System<'a, T> {
     }
 }
 
-pub fn compute<R: Layout>(root: &R, w: Px, h: Px) {
+pub fn compute<R: Layout>(root: &R, fonts: &mut text::FontFaces, w: Px, h: Px) {
     // TODO reuse the context to avoid allocating every time.
     let var_arena = TypedArena::new();
-    let mut cx = CollectCx::new(&var_arena);
+    let mut cx = CollectCx {
+        system: System::new(&var_arena),
+        fonts: fonts
+    };
     let r = root.collect(&mut cx);
     r.x1.assign(0.0);
     r.y1.assign(0.0);
@@ -650,7 +658,25 @@ pub fn compute<R: Layout>(root: &R, w: Px, h: Px) {
     cx.solve();
 }
 
-pub type CollectCx<'a> = System<'a, Px>;
+pub struct CollectCx<'a> {
+    system: System<'a, Px>,
+    pub fonts: &'a mut text::FontFaces
+}
+
+impl<'a> Deref for CollectCx<'a> {
+    type Target = System<'a, Px>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.system
+    }
+}
+
+impl<'a> DerefMut for CollectCx<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.system
+    }
+}
+
 pub type CollectBB<'a> = BB<Variable<'a, Px>>;
 
 pub trait Layout {
@@ -731,16 +757,20 @@ impl<D, A, B> FlowLayout<D> for (A, B) where
     }
 }
 
+pub type ConstrainCx<'a, 'b> = (&'a mut CollectCx<'b>, &'a mut CollectBB<'b>);
 pub type RectBB = BB<Cell<Px>>;
 
 pub trait RectBounded {
     fn rect_bb(&self) -> &BB<Cell<Px>>;
     fn name(&self) -> &'static str { "<unnamed>" }
+    fn constrain<'a, 'b>(&'a self, _: ConstrainCx<'b, 'a>) {}
 }
 
 impl<T> Layout for T where T: RectBounded {
     fn collect<'a>(&'a self, cx: &mut CollectCx<'a>) -> CollectBB<'a> {
-        cx.area(self.rect_bb(), self.name())
+        let mut bb = cx.area(self.rect_bb(), self.name());
+        self.constrain((cx, &mut bb));
+        bb
     }
     fn bb(&self) -> BB<Px> {
         self.rect_bb().as_ref().map(|x| x.get())

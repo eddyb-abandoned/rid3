@@ -1,18 +1,15 @@
-use graphics::math::Matrix2d;
-use gfx_graphics::{GraphicsBackEnd, GlyphCache};
-use gfx_device;
+use gfx;
 
 use ui::Flow;
+use ui::text;
 
-pub struct DrawCx<'a, 'b: 'a, 'c: 'a> {
-    pub gfx: &'a mut GraphicsBackEnd<'b, gfx_device::Resources,
-                                         gfx_device::CommandBuffer,
-                                         gfx_device::Output>,
-    pub glyph_cache: &'a mut GlyphCache<'c, gfx_device::Resources>,
-    pub transform: Matrix2d
+pub struct DrawCx<'a, 'b: 'a> {
+    pub gfx: &'a mut gfx::BackEnd<'b>,
+    pub fonts: &'a mut text::FontFaces,
+    pub transform: gfx::Mat2
 }
 
-impl<'a, 'b, 'c> DrawCx<'a, 'b, 'c> {
+impl<'a, 'b> DrawCx<'a, 'b> {
     pub fn draw<T: Draw>(&mut self, x: &T) {
         x.draw(self);
     }
