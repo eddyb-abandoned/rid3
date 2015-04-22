@@ -237,6 +237,7 @@ impl<'a, T: Domain> fmt::Debug for Term<'a, T> {
 #[derive(Clone)]
 struct Constraint<'a, T: 'a + Domain> {
     terms: Vec<Term<'a, T>>,
+    priority: i8,
     bounds: Bounds<T>
 }
 
@@ -299,8 +300,11 @@ impl<'a, T: Domain> System<'a, T> {
     fn area(&mut self, bb: &'a BB<Cell<T>>, name: &'static str)
             -> BB<Variable<'a, T>> {
         let bb = bb.as_ref().map_name(|x, name2| self.var(x, [name, name2]));
+        // Low priority as they can be redundant sometimes
         self.order(bb.x1, bb.x2);
+        self.constraints.back_mut().unwrap().priority -= 1;
         self.order(bb.y1, bb.y2);
+        self.constraints.back_mut().unwrap().priority -= 1;
         bb
     }
 
@@ -310,6 +314,7 @@ impl<'a, T: Domain> System<'a, T> {
                 Term { factor: T::one(), var: a },
                 Term { factor: -T::one(), var: b }
             ],
+            priority: 0,
             bounds: Bounds::equal(T::zero())
         })
     }
@@ -320,6 +325,7 @@ impl<'a, T: Domain> System<'a, T> {
                 Term { factor: T::one(), var: a },
                 Term { factor: -T::one(), var: b }
             ],
+            priority: 0,
             bounds: Bounds {
                 min: -T::infinity(),
                 max: T::zero()
@@ -335,7 +341,7 @@ impl<'a, T: Domain> System<'a, T> {
                 let mut modified = false;
                 let c = self.constraints.pop_front().unwrap();
                 //.normalize();
-                let Constraint { mut terms, mut bounds } = c;
+                let Constraint { mut terms, mut bounds, priority } = c;
                 let mut new_bounds = Bounds::equal(T::zero());
                 terms = terms.into_iter().filter(|t| {
                     if let Some(v) = t.var.value() {
@@ -380,6 +386,7 @@ impl<'a, T: Domain> System<'a, T> {
                     }
                     self.constraints.push_back(Constraint {
                         terms: terms,
+                        priority: priority,
                         bounds: bounds
                     });
                 }
@@ -436,9 +443,11 @@ impl<'a, T: Domain> System<'a, T> {
             }*/
 
             // Opportunistic solving by chaining a - b constraints.
-            for i in 0..self.constraints.len() {
+            let mut constraints = self.constraints.iter().cloned().collect::<Vec<_>>();
+            constraints.sort_by(|a, b| b.priority.cmp(&a.priority));
+            for i in 0..constraints.len() {
                 let (a, b, bounds) = {
-                    let c = &self.constraints[i];
+                    let c = &constraints[i];
                     if c.terms.len() != 2 || c.terms[0].factor != -c.terms[1].factor {
                         continue;
                     }
@@ -494,12 +503,12 @@ impl<'a, T: Domain> System<'a, T> {
                     Span::Flex(x) => flex = flex + x
                 }
 
-                let mut cs: Vec<_> = self.constraints.iter().map(|_| None).collect();
+                let mut cs: Vec<_> = constraints.iter().map(|_| None).collect();
                 cs[i] = Some(());
 
                 loop {
                     let q_len = q.len();
-                    for (j, c) in self.constraints.iter().enumerate() {
+                    for (j, c) in constraints.iter().enumerate() {
                         if cs[j].is_some() || c.terms.len() != 2 {
                             continue;
                         }
