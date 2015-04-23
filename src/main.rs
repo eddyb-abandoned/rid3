@@ -10,7 +10,9 @@ extern crate piston;
 extern crate glutin_window;
 
 use gfx_core::traits::*;
-use gfx_graphics::{Gfx2d, GlyphCache};
+use gfx_graphics::Gfx2d;
+
+pub mod glyph;
 
 pub mod gfx {
     pub use graphics::math::Matrix2d as Mat2;
@@ -19,11 +21,14 @@ pub mod gfx {
     use gfx_graphics as g2d;
     use gfx_device as dev;
 
-    pub type GlyphCache = g2d::GlyphCache<dev::Resources>;
+    pub type GlyphCache = ::glyph::GlyphCache<dev::Resources, dev::Factory>;
     pub type BackEnd<'a> = g2d::GraphicsBackEnd<'a, dev::Resources,
                                                     dev::CommandBuffer,
                                                     dev::Output>;
 }
+
+use std::cell::RefCell;
+use std::rc::Rc;
 
 use piston::event::*;
 use piston::input::{Button, MouseButton};
@@ -51,12 +56,13 @@ fn main() {
 
     let (mut device, mut factory) = gfx_device::create(|s| window.get_proc_address(s));
     let mut renderer = factory.create_renderer();
-
     let mut g2d = Gfx2d::new(&mut device, &mut factory);
 
+    let factory = Rc::new(RefCell::new(factory));
+
     let mut fonts = FontFaces {
-        regular: GlyphCache::new("assets/NotoSans/NotoSans-Regular.ttf".as_ref(), &mut factory).unwrap(),
-        mono: GlyphCache::new("assets/Hasklig/Hasklig-Regular.otf".as_ref(), &mut factory).unwrap()
+        regular: gfx::GlyphCache::new("assets/NotoSans/NotoSans-Regular.ttf", factory.clone()).unwrap(),
+        mono: gfx::GlyphCache::new("assets/Hasklig/Hasklig-Regular.otf", factory.clone()).unwrap()
     };
 
     let a = Demo::new([0.0, 1.0, 1.0], "a");
@@ -72,7 +78,7 @@ fn main() {
         if let Some(args) = e.render_args() {
             let viewport = args.viewport();
             let sz = viewport.draw_size;
-            let frame = factory.make_fake_output(sz[0] as u16, sz[1] as u16);
+            let frame = factory.borrow_mut().make_fake_output(sz[0] as u16, sz[1] as u16);
             g2d.draw(&mut renderer, &frame, viewport, |c, g| {
                 ui::layout::compute(&root, &mut fonts, sz[0] as Px, sz[1] as Px);
                 graphics::clear(graphics::color::WHITE, g);
@@ -89,9 +95,7 @@ fn main() {
 
         if let Some(_) = e.after_render_args() {
             device.after_frame();
-            fonts.regular.update(&mut factory);
-            fonts.mono.update(&mut factory);
-            factory.cleanup();
+            factory.borrow_mut().cleanup();
         }
 
         if let Some(Button::Mouse(MouseButton::Left)) = e.press_args() {
@@ -124,23 +128,18 @@ fn layout(bench: &mut test::Bencher) {
         ).exit_on_esc(true)
     );
 
-    let (_, mut factory) = gfx_device::create(|s| window.get_proc_address(s));
+    let (_, factory) = gfx_device::create(|s| window.get_proc_address(s));
+    let factory = Rc::new(RefCell::new(factory));
 
     let mut fonts = FontFaces {
-        regular: GlyphCache::new("assets/NotoSans/NotoSans-Regular.ttf".as_ref(), &mut factory).unwrap(),
-        mono: GlyphCache::new("assets/Hasklig/Hasklig-Regular.otf".as_ref(), &mut factory).unwrap()
+        regular: gfx::GlyphCache::new("assets/NotoSans/NotoSans-Regular.ttf", factory.clone()).unwrap(),
+        mono: gfx::GlyphCache::new("assets/Hasklig/Hasklig-Regular.otf", factory.clone()).unwrap()
     };
 
     let a = Demo::new([1.0, 0.0, 0.0], "a");
     let b = Demo::new([0.0, 1.0, 0.0], "b");
     let c = Demo::new([0.0, 0.0, 1.0], "c");
     let root = flow![down: a, flow![right: b, c]];
-
-    // HACK kickstart the glyph caches.
-    ui::layout::compute(&root, &mut fonts, 800.0, 600.0);
-    fonts.regular.update(&mut factory);
-    fonts.mono.update(&mut factory);
-    factory.cleanup();
 
     bench.iter(|| {
         ui::layout::compute(&root, &mut fonts, 800.0, 600.0);

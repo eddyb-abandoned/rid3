@@ -1,6 +1,7 @@
 use std::cell::Cell;
 use std::default::Default;
 
+use glyph::Metrics;
 use gfx::{Color, GlyphCache, FontSize};
 use graphics::character::CharacterCache;
 
@@ -13,6 +14,20 @@ use ui::layout::{RectBounded, RectBB, ConstrainCx, Layout};
 pub trait FontFace {
     fn size(&self) -> FontSize { 16 }
     fn cache<'a>(&self, fonts: &'a mut FontFaces) -> &'a mut GlyphCache;
+    fn draw(&self, cx: &mut DrawCx, pos: [Px; 2], color: Color, text: &str) {
+        use graphics::*;
+
+        let [x, y] = pos;
+        let cache = self.cache(&mut cx.fonts);
+        let y = y + cache.metrics(self.size()).baseline;
+        text::Text::colored(color, self.size()).draw(
+            text,
+            cache,
+            default_draw_state(),
+            cx.transform.trans(x as f64, y as f64),
+            cx.gfx
+        );
+    }
 }
 
 macro_rules! font_faces {
@@ -31,6 +46,12 @@ macro_rules! font_faces {
 font_faces! {
     Regular => regular,
     Mono => mono
+}
+
+impl FontFaces {
+    pub fn metrics<F>(&mut self, font: F) -> Metrics where F: FontFace {
+        font.cache(self).metrics(font.size())
+    }
 }
 
 pub struct Label<F=Regular> {
@@ -56,23 +77,18 @@ impl<F> RectBounded for Label<F> where F: FontFace {
     fn name(&self) -> &'static str { self.text }
     fn constrain<'a, 'b>(&'a self, (cx, bb): ConstrainCx<'b, 'a>) {
         let size = self.font.size();
-        let w = self.font.cache(&mut cx.fonts).width(size, self.text) as Px;
+        let (w, h) = {
+            let cache = self.font.cache(&mut cx.fonts);
+            (cache.width(size, self.text) as Px, cache.metrics(size).height)
+        };
         cx.distance(bb.x1, bb.x2, w);
-        cx.distance(bb.y1, bb.y2, size as Px);
+        cx.distance(bb.y1, bb.y2, h);
     }
 }
 
 impl<F> Draw for Label<F> where F: FontFace {
     fn draw(&self, cx: &mut DrawCx) {
-        use graphics::*;
-
         let bb = self.bb();
-        text::Text::colored(self.color.get(), self.font.size()).draw(
-            self.text,
-            self.font.cache(&mut cx.fonts),
-            default_draw_state(),
-            cx.transform.trans(bb.x1 as f64, bb.y2 as f64),
-            cx.gfx
-        );
+        self.font.draw(cx, [bb.x1, bb.y1], self.color.get(), self.text);
     }
 }
