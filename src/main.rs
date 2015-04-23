@@ -27,6 +27,10 @@ pub mod gfx {
                                                     dev::Output>;
 }
 
+pub mod cfg {
+    pub use ui::color::BreezeDark as ColorScheme;
+}
+
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -38,6 +42,7 @@ use glutin_window::{GlutinWindow, OpenGL};
 #[macro_use]
 pub mod ui;
 use ui::Px;
+use ui::color::Scheme;
 use ui::draw::DrawCx;
 use ui::event::Dispatch;
 use ui::text::FontFaces;
@@ -81,7 +86,7 @@ fn main() {
             let frame = factory.borrow_mut().make_fake_output(sz[0] as u16, sz[1] as u16);
             g2d.draw(&mut renderer, &frame, viewport, |c, g| {
                 ui::layout::compute(&root, &mut fonts, sz[0] as Px, sz[1] as Px);
-                graphics::clear(graphics::color::WHITE, g);
+                graphics::clear(cfg::ColorScheme.background(), g);
                 DrawCx {
                     gfx: g,
                     fonts: &mut fonts,

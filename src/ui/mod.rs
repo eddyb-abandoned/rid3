@@ -1,4 +1,5 @@
 pub mod layout;
+pub mod color;
 pub mod draw;
 pub mod event;
 pub mod text;
