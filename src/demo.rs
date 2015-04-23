@@ -5,7 +5,7 @@ use gfx::Color;
 
 use ui::layout::{RectBB, RectBounded, ConstrainCx, Layout, Where};
 use ui::draw::{Draw, DrawCx};
-use ui::event::{Dispatch, MouseDown, MouseUp, MouseMove};
+use ui::event::*;
 use ui::text::Label;
 
 pub struct Demo {
@@ -91,4 +91,8 @@ impl Dispatch<MouseMove> for Demo {
     fn dispatch(&self, ev: &MouseMove) {
         self.over.set(self.bb().contains(ev.pos()));
     }
+}
+
+impl Dispatch<MouseScroll> for Demo {
+    fn dispatch(&self, _: &MouseScroll) {}
 }

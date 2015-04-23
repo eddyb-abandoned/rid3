@@ -7,6 +7,7 @@ extern crate gfx as gfx_core;
 extern crate gfx_device_gl as gfx_device;
 extern crate gfx_graphics;
 extern crate piston;
+extern crate glutin;
 extern crate glutin_window;
 
 use gfx_core::traits::*;
@@ -18,13 +19,15 @@ pub mod gfx {
     pub use graphics::math::Matrix2d as Mat2;
     pub use graphics::types::*;
 
+    pub use glutin::MouseCursor;
+
     use gfx_graphics as g2d;
     use gfx_device as dev;
 
     pub type GlyphCache = ::glyph::GlyphCache<dev::Resources, dev::Factory>;
-    pub type BackEnd<'a> = g2d::GraphicsBackEnd<'a, dev::Resources,
-                                                    dev::CommandBuffer,
-                                                    dev::Output>;
+    pub type BackEnd<'a> = g2d::GfxGraphics<'a, dev::Resources,
+                                                dev::CommandBuffer,
+                                                dev::Output>;
 }
 
 pub mod cfg {
@@ -79,6 +82,8 @@ fn main() {
     let root = flow![up: a, flow![right: b, c, d], flow![left: e, f]];
 
     let (mut x, mut y) = (0.0, 0.0);
+    let mut cursor = gfx::MouseCursor::Default;
+    let window = &Rc::new(RefCell::new(window));
     for e in window.events() {
         if let Some(args) = e.render_args() {
             let viewport = args.viewport();
@@ -87,11 +92,17 @@ fn main() {
             g2d.draw(&mut renderer, &frame, viewport, |c, g| {
                 ui::layout::compute(&root, &mut fonts, sz[0] as Px, sz[1] as Px);
                 graphics::clear(cfg::ColorScheme.background(), g);
-                DrawCx {
+                let mut draw_cx = DrawCx {
                     gfx: g,
                     fonts: &mut fonts,
-                    transform: c.transform
-                }.draw(&root);
+                    transform: c.transform,
+                    cursor: gfx::MouseCursor::Default
+                };
+                draw_cx.draw(&root);
+                if (draw_cx.cursor as usize) != (cursor as usize) {
+                    window.borrow_mut().window.set_cursor(draw_cx.cursor);
+                    cursor = draw_cx.cursor;
+                }
             });
 
             device.submit(renderer.as_buffer());
@@ -115,6 +126,11 @@ fn main() {
             x = nx as Px;
             y = ny as Px;
             root.dispatch(&ui::event::MouseMove::new(x, y));
+        }
+
+        if let Some([dx, dy]) = e.mouse_scroll_args() {
+            root.dispatch(&ui::event::MouseScroll::with(x, y,
+                ui::event::mouse::Scroll([dx as Px, dy as Px])));
         }
     }
 }

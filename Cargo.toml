@@ -6,6 +6,9 @@ authors = ["Eduard-Mihai Burtescu <edy.burt@gmail.com>"]
 [dependencies.piston]
 git = "https://github.com/PistonDevelopers/piston"
 
+[dependencies.glutin]
+git = "https://github.com/tomaka/glutin"
+
 [dependencies.pistoncore-glutin_window]
 git = "https://github.com/PistonDevelopers/glutin_window"
 
@@ -20,3 +23,6 @@ git = "https://github.com/gfx-rs/gfx-rs"
 
 [dependencies.gfx_device_gl]
 git = "https://github.com/gfx-rs/gfx_device_gl"
+
+[dependencies.freetype-rs]
+git = "https://github.com/PistonDevelopers/freetype-rs"

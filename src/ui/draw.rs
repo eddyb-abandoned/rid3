@@ -6,6 +6,7 @@ use ui::text;
 pub struct DrawCx<'a, 'b: 'a> {
     pub gfx: &'a mut gfx::BackEnd<'b>,
     pub fonts: &'a mut text::FontFaces,
+    pub cursor: gfx::MouseCursor,
     pub transform: gfx::Mat2
 }
 

@@ -25,15 +25,22 @@ impl<A, B, E> Dispatch<E> for (A, B) where
 pub struct Mouse<T> {
     pub x: Px,
     pub y: Px,
-    pub data: T
+    data: T
 }
 
-impl<T: Default> Mouse<T> {
-    pub fn new(x: Px, y: Px) -> Mouse<T> {
+impl<T> Mouse<T> {
+    pub fn new(x: Px, y: Px) -> Mouse<T> where T: Default {
         Mouse {
             x: x,
             y: y,
             data: T::default()
+        }
+    }
+    pub fn with(x: Px, y: Px, data: T) -> Mouse<T> {
+        Mouse {
+            x: x,
+            y: y,
+            data: data
         }
     }
 }
@@ -45,6 +52,8 @@ impl<T> Where for Mouse<T> {
 }
 
 pub mod mouse {
+    use ui::Px;
+
     #[derive(Default)]
     pub struct Down;
     #[derive(Default)]
@@ -53,9 +62,16 @@ pub mod mouse {
     pub struct Click;
     #[derive(Default)]
     pub struct Move;
+
+    pub struct Scroll(pub [Px; 2]);
 }
 
 pub type MouseDown = Mouse<mouse::Down>;
 pub type MouseUp = Mouse<mouse::Up>;
 pub type MouseClick = Mouse<mouse::Click>;
 pub type MouseMove = Mouse<mouse::Move>;
+pub type MouseScroll = Mouse<mouse::Scroll>;
+
+impl MouseScroll {
+    pub fn delta(&self) -> [Px; 2] { self.data.0 }
+}
