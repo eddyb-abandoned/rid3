@@ -349,16 +349,22 @@ impl<'a, T: Domain> System<'a, T> {
                 //.normalize();
                 let Constraint { mut terms, mut bounds, priority } = c;
                 let mut new_bounds = Bounds::equal(T::zero());
-                terms = terms.into_iter().filter(|t| {
+
+                let mut i = 0;
+                let mut j = 0;
+                while i < terms.len() {
+                    let t = terms[i];
                     if let Some(v) = t.var.value() {
                         bounds = bounds - v * t.factor;
                         modified = true;
-                        false
                     } else {
                         new_bounds = new_bounds + t.var.bounds() * t.factor;
-                        true
+                        terms[j] = t;
+                        j += 1;
                     }
-                }).collect();
+                    i += 1;
+                }
+                terms.truncate(j);
 
                 {
                     let old_bounds = bounds;
