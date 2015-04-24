@@ -1,7 +1,9 @@
 #![cfg_attr(test, feature(test))]
-#![feature(rustc_private, slice_patterns)]
+#![feature(rustc_private, slice_patterns, unicode)]
 
 extern crate arena;
+extern crate clock_ticks;
+
 extern crate graphics;
 extern crate gfx as gfx_core;
 extern crate gfx_device_gl as gfx_device;
@@ -50,9 +52,6 @@ use ui::draw::DrawCx;
 use ui::event::Dispatch;
 use ui::text::FontFaces;
 
-pub mod demo;
-use demo::Demo;
-
 fn main() {
     let mut window = GlutinWindow::new(
         OpenGL::_3_2,
@@ -79,13 +78,8 @@ fn main() {
         ui::menu::Button::new("Settings"),
         ui::menu::Button::new("Help"),
     ];
-    let a = Demo::new([0.0, 1.0, 1.0], "a");
-    let b = Demo::new([1.0, 0.0, 1.0], "b");
-    let c = Demo::new([1.0, 1.0, 0.0], "c");
-    let d = Demo::new([1.0, 0.0, 0.0], "d");
-    let e = Demo::new([0.0, 1.0, 0.0], "e");
-    let f = Demo::new([0.0, 0.0, 1.0], "f");
-    let root = flow![up: a, flow![right: b, c, d], flow![left: e, f], menu_bar];
+    let editor = ui::editor::Editor::open("src/main.rs");
+    let root = flow![down: menu_bar, editor];
 
     let (mut x, mut y) = (0.0, 0.0);
     let mut cursor = gfx::MouseCursor::Default;
@@ -145,14 +139,22 @@ fn main() {
         if let Some(_) = e.update_args() {
             dirty |= root.dispatch(&ui::event::Update);
         }
+
+        if let Some(_) = e.resize_args() {
+            dirty = true;
+        }
     }
 }
 
 #[cfg(test)]
 extern crate test;
+#[cfg(test)]
+pub mod demo;
 
 #[bench]
 fn layout(bench: &mut test::Bencher) {
+    use demo::Demo;
+
     // TODO use a headless renderer.
     let mut window = GlutinWindow::new(
         OpenGL::_3_2,

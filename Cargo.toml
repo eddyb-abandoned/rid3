@@ -26,3 +26,6 @@ git = "https://github.com/gfx-rs/gfx_device_gl"
 
 [dependencies.freetype-rs]
 git = "https://github.com/PistonDevelopers/freetype-rs"
+
+[dependencies.clock_ticks]
+git = "https://github.com/tomaka/clock_ticks"

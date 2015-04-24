@@ -6,6 +6,7 @@ pub mod text;
 
 #[macro_use]
 pub mod menu;
+pub mod editor;
 
 pub type Px = f32;
 

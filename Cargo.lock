@@ -2,6 +2,7 @@
 name = "r3"
 version = "0.0.1"
 dependencies = [
+ "clock_ticks 0.0.5 (git+https://github.com/tomaka/clock_ticks)",
  "freetype-rs 0.0.8 (git+https://github.com/PistonDevelopers/freetype-rs)",
  "gfx 0.2.9 (git+https://github.com/gfx-rs/gfx-rs)",
  "gfx_device_gl 0.2.4 (git+https://github.com/gfx-rs/gfx_device_gl)",
