@@ -45,7 +45,8 @@ macro_rules! font_faces {
 
 font_faces! {
     Regular => regular,
-    Mono => mono
+    Mono => mono,
+    MonoBold => mono_bold
 }
 
 impl FontFaces {

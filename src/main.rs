@@ -1,6 +1,8 @@
 #![cfg_attr(test, feature(test))]
-#![feature(rustc_private, slice_patterns, unicode)]
+#![feature(plugin, rustc_private, slice_patterns, unicode)]
 
+#![plugin(regex_macros)]
+extern crate regex;
 extern crate arena;
 extern crate clock_ticks;
 
@@ -52,6 +54,10 @@ use ui::draw::DrawCx;
 use ui::event::Dispatch;
 use ui::text::FontFaces;
 
+pub mod ide {
+    pub mod highlight;
+}
+
 fn main() {
     let mut window = GlutinWindow::new(
         OpenGL::_3_2,
@@ -69,7 +75,8 @@ fn main() {
 
     let mut fonts = FontFaces {
         regular: gfx::GlyphCache::new("assets/NotoSans/NotoSans-Regular.ttf", factory.clone()).unwrap(),
-        mono: gfx::GlyphCache::new("assets/Hasklig/Hasklig-Regular.otf", factory.clone()).unwrap()
+        mono: gfx::GlyphCache::new("assets/Hasklig/Hasklig-Regular.otf", factory.clone()).unwrap(),
+        mono_bold: gfx::GlyphCache::new("assets/Hasklig/Hasklig-Bold.otf", factory.clone()).unwrap()
     };
 
     let menu_bar = menu_bar![
@@ -169,7 +176,8 @@ fn layout(bench: &mut test::Bencher) {
 
     let mut fonts = FontFaces {
         regular: gfx::GlyphCache::new("assets/NotoSans/NotoSans-Regular.ttf", factory.clone()).unwrap(),
-        mono: gfx::GlyphCache::new("assets/Hasklig/Hasklig-Regular.otf", factory.clone()).unwrap()
+        mono: gfx::GlyphCache::new("assets/Hasklig/Hasklig-Regular.otf", factory.clone()).unwrap(),
+        mono_bold: gfx::GlyphCache::new("assets/Hasklig/Hasklig-Bold.otf", factory.clone()).unwrap()
     };
 
     let a = Demo::new([1.0, 0.0, 0.0], "a");

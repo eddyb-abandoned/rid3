@@ -18,9 +18,12 @@ use ui::draw::{Draw, DrawCx};
 use ui::event::*;
 use ui::text::{self, FontFace};
 
+use ide::highlight;
+
 pub struct Editor {
     bb: RectBB,
     font: text::Mono,
+    font_bold: text::MonoBold,
     font_metrics: Cell<Metrics>,
     over: Cell<bool>,
     down: Cell<bool>,
@@ -37,17 +40,30 @@ struct Caret {
     offset: usize
 }
 
+#[derive(Debug)]
 struct Line {
-    data: String
+    data: String,
+    ranges: Vec<(usize, highlight::Style)>
 }
 
 impl Editor {
     pub fn open<P: AsRef<Path>>(path: P) -> Editor {
         let mut data = String::new();
         fs::File::open(path).unwrap().read_to_string(&mut data).unwrap();
+        let mut lines: Vec<_> = data.split('\n').map(|line| Line {
+            data: line.to_owned(),
+            ranges: vec![]
+        }).collect();
+
+        let hl = highlight::Rust::run(lines.iter().map(|line| &line.data[..]));
+        for (line, ranges) in lines.iter_mut().zip(hl.into_iter()) {
+            line.ranges = ranges;
+        }
+
         Editor {
             bb: RectBB::default(),
             font: text::Mono,
+            font_bold: text::MonoBold,
             font_metrics: Cell::new(Metrics::default()),
             over: Cell::new(false),
             down: Cell::new(false),
@@ -58,9 +74,7 @@ impl Editor {
                 col: 0,
                 offset: 0
             }),
-            lines: data.split('\n').map(|line| Line {
-                data: line.to_owned()
-            }).collect()
+            lines: lines
         }
     }
 }
@@ -113,8 +127,17 @@ impl Draw for Editor {
         }
 
         for (i, line) in lines.iter().enumerate() {
-            self.font.draw(cx, [bb.x1, bb.y1 + i as Px * metrics.height],
-                           ColorScheme.normal(), &line.data);
+            let y = bb.y1 + i as Px * metrics.height;
+            let mut pos = 0;
+            for &(len, style) in &line.ranges {
+                let x = bb.x1 + (pos as Px) * metrics.width;
+                if style.bold {
+                    self.font_bold.draw(cx, [x, y], style.color, &line.data[pos..pos+len]);
+                } else {
+                    self.font.draw(cx, [x, y], style.color, &line.data[pos..pos+len]);
+                }
+                pos += len;
+            }
         }
     }
 }

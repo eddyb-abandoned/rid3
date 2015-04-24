@@ -11,6 +11,8 @@ dependencies = [
  "piston2d-gfx_graphics 0.1.18 (git+https://github.com/PistonDevelopers/gfx_graphics)",
  "piston2d-graphics 0.0.44 (git+https://github.com/PistonDevelopers/graphics)",
  "pistoncore-glutin_window 0.0.7 (git+https://github.com/PistonDevelopers/glutin_window)",
+ "regex 0.1.29 (registry+https://github.com/rust-lang/crates.io-index)",
+ "regex_macros 0.1.16 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -450,6 +452,19 @@ dependencies = [
 name = "read_color"
 version = "0.0.2"
 source = "git+https://github.com/PistonDevelopers/read_color#568723fb7d9a69833e1d5a5ec79ded8ce9562920"
+
+[[package]]
+name = "regex"
+version = "0.1.29"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "regex_macros"
+version = "0.1.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "regex 0.1.29 (registry+https://github.com/rust-lang/crates.io-index)",
+]
 
 [[package]]
 name = "rustc-serialize"

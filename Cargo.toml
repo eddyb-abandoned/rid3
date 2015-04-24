@@ -3,6 +3,10 @@ name = "r3"
 version = "0.0.1"
 authors = ["Eduard-Mihai Burtescu <edy.burt@gmail.com>"]
 
+[dependencies]
+regex = "*"
+regex_macros = "*"
+
 [dependencies.piston]
 git = "https://github.com/PistonDevelopers/piston"
 
