@@ -67,6 +67,7 @@ macro_rules! goto {
     ($s:expr, $cx:ident) => ($s.$cx())
 }
 
+#[cfg(not(test))]
 macro_rules! cases {
     ($s:expr, $ds:ident:) => { $s.advance(1, styles::$ds) };
     ($s:expr, $ds:ident: $re:expr; $($rest:tt)*) => { cases!($s, $ds: $re, $ds => {}; $($rest)*) };
@@ -81,6 +82,9 @@ macro_rules! cases {
         }
     }
 }
+
+#[cfg(test)]
+macro_rules! cases { ($($rest:tt)*) => {()} }
 
 macro_rules! context {
     ($name:ident, $ds:ident: $($rest:tt)*) => { context!{$name, $ds => {}: $($rest)*} };

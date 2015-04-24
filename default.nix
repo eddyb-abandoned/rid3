@@ -10,6 +10,8 @@ let
         # glfw deps
         cmake mesa libXrandr libXi libXxf86vm libXfixes x11
 
+        mesa_noglu
+
         libXcursor
 
         glib
