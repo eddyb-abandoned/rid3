@@ -73,13 +73,19 @@ fn main() {
         mono: gfx::GlyphCache::new("assets/Hasklig/Hasklig-Regular.otf", factory.clone()).unwrap()
     };
 
+    let menu_bar = menu_bar![
+        ui::menu::Button::new("File"),
+        ui::menu::Button::new("Edit"),
+        ui::menu::Button::new("Settings"),
+        ui::menu::Button::new("Help"),
+    ];
     let a = Demo::new([0.0, 1.0, 1.0], "a");
     let b = Demo::new([1.0, 0.0, 1.0], "b");
     let c = Demo::new([1.0, 1.0, 0.0], "c");
     let d = Demo::new([1.0, 0.0, 0.0], "d");
     let e = Demo::new([0.0, 1.0, 0.0], "e");
     let f = Demo::new([0.0, 0.0, 1.0], "f");
-    let root = flow![up: a, flow![right: b, c, d], flow![left: e, f]];
+    let root = flow![up: a, flow![right: b, c, d], flow![left: e, f], menu_bar];
 
     let (mut x, mut y) = (0.0, 0.0);
     let mut cursor = gfx::MouseCursor::Default;

@@ -50,8 +50,6 @@ impl RectBounded for Demo {
 
 impl Draw for Demo {
     fn draw(&self, cx: &mut DrawCx) {
-        use graphics::*;
-
         fn invert_rgb([r, g, b, a]: Color) -> Color {
             [1.0 - r, 1.0 - g, 1.0 - b, a]
         }
@@ -64,10 +62,7 @@ impl Draw for Demo {
             (color, invert_rgb(color))
         };
 
-        let bb = self.bb().map(|x| x as f64);
-        rectangle(background,
-                  [bb.x1, bb.y1, bb.x2 - bb.x1, bb.y2 - bb.y1],
-                  cx.transform, cx.gfx);
+        cx.rect(self.bb(), background);
 
         self.label.color.set(foreground);
         self.label.draw(cx);

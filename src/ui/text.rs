@@ -12,7 +12,7 @@ use ui::layout::{RectBounded, RectBB, ConstrainCx, Layout};
 // TODO use a text layouting engine
 
 pub trait FontFace {
-    fn size(&self) -> FontSize { 16 }
+    fn size(&self) -> FontSize { 10 }
     fn cache<'a>(&self, fonts: &'a mut FontFaces) -> &'a mut GlyphCache;
     fn draw(&self, cx: &mut DrawCx, pos: [Px; 2], color: Color, text: &str) {
         use graphics::*;
@@ -35,7 +35,7 @@ macro_rules! font_faces {
         pub struct FontFaces {
             $(pub $name: GlyphCache),*
         }
-        $(#[derive(Default)] pub struct $ty; impl FontFace for $ty {
+        $(#[derive(Copy, Clone, Default)] pub struct $ty; impl FontFace for $ty {
             fn cache<'a>(&self, fonts: &'a mut FontFaces) -> &'a mut GlyphCache {
                 &mut fonts.$name
             }

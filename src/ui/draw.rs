@@ -1,6 +1,6 @@
 use gfx;
 
-use ui::Flow;
+use ui::{BB, Flow, Px};
 use ui::text;
 
 pub struct DrawCx<'a, 'b: 'a> {
@@ -13,6 +13,14 @@ pub struct DrawCx<'a, 'b: 'a> {
 impl<'a, 'b> DrawCx<'a, 'b> {
     pub fn draw<T: Draw>(&mut self, x: &T) {
         x.draw(self);
+    }
+
+    pub fn rect(&mut self, bb: BB<Px>, color: gfx::Color) {
+        use graphics::rectangle;
+
+        rectangle(color,
+                  [bb.x1 as f64, bb.y1 as f64, (bb.x2 - bb.x1)  as f64, (bb.y2 - bb.y1)  as f64],
+                  self.transform, self.gfx);
     }
 }
 

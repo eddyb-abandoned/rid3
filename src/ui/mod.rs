@@ -4,6 +4,9 @@ pub mod draw;
 pub mod event;
 pub mod text;
 
+#[macro_use]
+pub mod menu;
+
 pub type Px = f32;
 
 #[derive(Copy, Clone, Default, Debug)]
