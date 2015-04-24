@@ -1,6 +1,6 @@
 use gfx;
 
-use ui::{BB, Flow, Px};
+use ui::{BB, Px};
 use ui::text;
 
 pub struct DrawCx<'a, 'b: 'a> {
@@ -34,11 +34,5 @@ impl<A, B> Draw for (A, B) where
     fn draw(&self, cx: &mut DrawCx) {
         self.0.draw(cx);
         self.1.draw(cx);
-    }
-}
-
-impl<D, K> Draw for Flow<D, K> where K: Draw {
-    fn draw(&self, cx: &mut DrawCx) {
-        self.kids.draw(cx);
     }
 }

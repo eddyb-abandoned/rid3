@@ -1,12 +1,48 @@
-pub mod layout;
+macro_rules! tlist {
+    [$x:expr] => ($x);
+    [$x:expr,] => ($x);
+    [$x:expr, $($y:tt)+] => (($x, tlist![$($y)*]))
+}
+
+macro_rules! enum_to_phantom {
+    ($m:ident => $name:ident { $($v:ident),+ }) => {
+        pub mod $m {
+            $(#[derive(Copy, Clone)] pub struct $v;)*
+        }
+        pub enum $name {
+            $($v),*
+        }
+        $(impl From<$m::$v> for $name {
+            fn from(_: $m::$v) -> $name {
+                $name::$v
+            }
+        })*
+    }
+}
+
+enum_to_phantom!(dir => Dir {
+    Up, Down, Left, Right
+});
+
+macro_rules! dir_ty {
+    (up) => (::ui::dir::Up);
+    (down) => (::ui::dir::Down);
+    (left) => (::ui::dir::Left);
+    (right) => (::ui::dir::Right)
+}
+
 pub mod color;
 pub mod draw;
 pub mod event;
 pub mod text;
 
 #[macro_use]
+pub mod flow;
+#[macro_use]
 pub mod menu;
 pub mod editor;
+
+pub mod layout;
 
 pub type Px = f32;
 
@@ -41,49 +77,4 @@ impl<T> BB<T> {
     pub fn contains(&self, [x, y]: [T; 2]) -> bool where T: PartialOrd {
         self.x1 <= x && x <= self.x2 && self.y1 <= y && y <= self.y2
     }
-}
-
-macro_rules! tlist {
-    [$x:expr] => ($x);
-    [$x:expr,] => ($x);
-    [$x:expr, $($y:tt)+] => (($x, tlist![$($y)*]))
-}
-
-macro_rules! enum_to_phantom {
-    ($m:ident => $name:ident { $($v:ident),+ }) => {
-        pub mod $m {
-            $(#[derive(Copy, Clone)] pub struct $v;)*
-        }
-        pub enum $name {
-            $($v),*
-        }
-        $(impl From<$m::$v> for $name {
-            fn from(_: $m::$v) -> $name {
-                $name::$v
-            }
-        })*
-    }
-}
-
-pub struct Flow<D, K> {
-    pub dir: D,
-    pub kids: K
-}
-
-enum_to_phantom!(dir => Dir {
-    Up, Down, Left, Right
-});
-
-macro_rules! dir_ty {
-    (up) => (::ui::dir::Up);
-    (down) => (::ui::dir::Down);
-    (left) => (::ui::dir::Left);
-    (right) => (::ui::dir::Right)
-}
-
-macro_rules! flow {
-    [$dir:ident: $($kids:tt)+] => (::ui::Flow {
-        dir: dir_ty!($dir),
-        kids: tlist!($($kids)*)
-    })
 }

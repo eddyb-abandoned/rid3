@@ -3,12 +3,13 @@ use std::default::Default;
 
 use cfg::ColorScheme;
 
-use ui::{dir, Flow};
+use ui::dir;
 use ui::layout::{RectBB, RectBounded, ConstrainCx, Layout, Where};
 use ui::color::Scheme;
 use ui::draw::{Draw, DrawCx};
 use ui::event::*;
 use ui::text::Label;
+use ui::flow::Flow;
 
 pub struct Bar<B> {
     bb: RectBB,

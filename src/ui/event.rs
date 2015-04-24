@@ -1,17 +1,11 @@
 use std::default::Default;
 
-use ui::{Px, Flow};
+use ui::Px;
 use ui::layout::Where;
 
 pub trait Dispatch<E> {
     /// Process an event and return true if redoing layout or rendering is needed.
     fn dispatch(&self, _ev: &E) -> bool { false }
-}
-
-impl<D, K, E> Dispatch<E> for Flow<D, K> where K: Dispatch<E> {
-    fn dispatch(&self, ev: &E) -> bool {
-        self.kids.dispatch(ev)
-    }
 }
 
 impl<A, B, E> Dispatch<E> for (A, B) where
