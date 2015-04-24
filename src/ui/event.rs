@@ -71,3 +71,5 @@ impl MouseScroll {
 }
 
 pub struct Update;
+
+pub struct TextInput<'a>(pub &'a str);

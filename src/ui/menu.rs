@@ -115,3 +115,4 @@ impl Dispatch<MouseMove> for Button {
 
 impl Dispatch<MouseScroll> for Button {}
 impl Dispatch<Update> for Button {}
+impl<'a> Dispatch<TextInput<'a>> for Button {}

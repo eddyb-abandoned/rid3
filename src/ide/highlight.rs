@@ -11,25 +11,27 @@ pub struct Style {
 // extensions=r".*\.rs" mimetype="text/x-rust"
 pub struct Rust<'a, I> {
     lines: I,
+    depth: usize,
     current_line: &'a str,
-    output: Vec<Vec<(usize, Style)>>
+    output: Vec<(usize, Vec<(usize, Style)>)>
 }
 
 impl<'a, I> Rust<'a, I> where I: Iterator<Item=&'a str> {
-    pub fn run(mut lines: I) -> Vec<Vec<(usize, Style)>> {
+    pub fn run(mut lines: I) -> (usize, Vec<(usize, Vec<(usize, Style)>)>) {
         let mut hl = Rust {
             current_line: lines.next().unwrap_or(""),
             lines: lines,
-            output: vec![vec![]]
+            depth: 0,
+            output: vec![(0, vec![])]
         };
         hl.normal();
-        hl.output
+        (hl.depth, hl.output)
     }
 
     fn advance(&mut self, len: usize, style: Style) {
         self.current_line = &self.current_line[len..];
 
-        let last = self.output.last_mut().unwrap();
+        let last = &mut self.output.last_mut().unwrap().1;
         if let Some(&mut (ref mut prev_len, prev_style)) = last.last_mut() {
             if style == prev_style {
                 *prev_len += len;
@@ -42,7 +44,7 @@ impl<'a, I> Rust<'a, I> where I: Iterator<Item=&'a str> {
     fn next_line(&mut self) -> bool {
         if let Some(line) = self.lines.next() {
             self.current_line = line;
-            self.output.push(vec![]);
+            self.output.push((self.depth, vec![]));
             true
         } else {
             self.current_line = "";
@@ -63,8 +65,8 @@ macro_rules! kw {
 
 macro_rules! goto {
     ($s:expr, {}) => (());
-    ($s:expr, return) => (return);
-    ($s:expr, $cx:ident) => ($s.$cx())
+    ($s:expr, return) => ({ $s.depth -= 1; return;});
+    ($s:expr, $cx:ident) => ({ $s.depth += 1; $s.$cx() })
 }
 
 #[cfg(not(test))]

@@ -120,5 +120,7 @@ fn main() {
         if let Some(_) = e.resize_args() {
             dirty = true;
         }
+
+        e.text(|s| dirty |= root.dispatch(&ui::event::TextInput(s)));
     }
 }
