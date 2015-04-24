@@ -48,6 +48,7 @@ impl<E, B> Dispatch<E> for Bar<B> where B: Dispatch<E> {
     }
 }
 
+#[macro_export]
 macro_rules! menu_bar {
     [$($kids:tt)+] => (::ui::menu::Bar::new(flow!(right: $($kids)*)))
 }

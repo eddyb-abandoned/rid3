@@ -1,3 +1,4 @@
+#[macro_export]
 macro_rules! tlist {
     [$x:expr] => ($x);
     [$x:expr,] => ($x);
@@ -24,6 +25,7 @@ enum_to_phantom!(dir => Dir {
     Up, Down, Left, Right
 });
 
+#[macro_export]
 macro_rules! dir_ty {
     (up) => (::ui::dir::Up);
     (down) => (::ui::dir::Down);

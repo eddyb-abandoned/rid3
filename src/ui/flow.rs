@@ -8,6 +8,7 @@ pub struct Flow<D, K> {
     pub kids: K
 }
 
+#[macro_export]
 macro_rules! flow {
     [$dir:ident: $($kids:tt)+] => (::ui::flow::Flow {
         dir: dir_ty!($dir),

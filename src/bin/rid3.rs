@@ -1,45 +1,17 @@
-#![cfg_attr(test, feature(test))]
-#![feature(plugin, rustc_private, slice_patterns, unicode)]
-
-#![plugin(regex_macros)]
-extern crate regex;
-extern crate arena;
-extern crate clock_ticks;
+#![feature(slice_patterns)]
 
 extern crate graphics;
 extern crate gfx as gfx_core;
 extern crate gfx_device_gl as gfx_device;
 extern crate gfx_graphics;
 extern crate piston;
-extern crate glutin;
 extern crate glutin_window;
-
-use gfx_core::traits::*;
-use gfx_graphics::Gfx2d;
-
-pub mod glyph;
-
-pub mod gfx {
-    pub use graphics::math::Matrix2d as Mat2;
-    pub use graphics::types::*;
-
-    pub use glutin::MouseCursor;
-
-    use gfx_graphics as g2d;
-    use gfx_device as dev;
-
-    pub type GlyphCache = ::glyph::GlyphCache<dev::Resources, dev::Factory>;
-    pub type BackEnd<'a> = g2d::GfxGraphics<'a, dev::Resources,
-                                                dev::CommandBuffer,
-                                                dev::Output>;
-}
-
-pub mod cfg {
-    pub use ui::color::BreezeDark as ColorScheme;
-}
 
 use std::cell::RefCell;
 use std::rc::Rc;
+
+use gfx_core::traits::*;
+use gfx_graphics::Gfx2d;
 
 use piston::event::*;
 use piston::input::{Button, MouseButton};
@@ -47,22 +19,20 @@ use piston::window::{WindowSettings, Size, OpenGLWindow};
 use glutin_window::{GlutinWindow, OpenGL};
 
 #[macro_use]
-pub mod ui;
+extern crate r3;
+pub use r3::{cfg, gfx, ui};
+
 use ui::Px;
 use ui::color::Scheme;
 use ui::draw::DrawCx;
 use ui::event::Dispatch;
 use ui::text::FontFaces;
 
-pub mod ide {
-    pub mod highlight;
-}
-
 fn main() {
     let mut window = GlutinWindow::new(
         OpenGL::_3_2,
         WindowSettings::new(
-            "r3 UI demo".to_string(),
+            "rid3".to_string(),
             Size { width: 800, height: 600 }
         ).exit_on_esc(true)
     );
@@ -85,7 +55,7 @@ fn main() {
         ui::menu::Button::new("Settings"),
         ui::menu::Button::new("Help"),
     ];
-    let editor = ui::editor::Editor::open("src/main.rs");
+    let editor = ui::editor::Editor::open("src/bin/rid3.rs");
     let root = flow![down: menu_bar, editor];
 
     let (mut x, mut y) = (0.0, 0.0);

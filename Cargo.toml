@@ -34,3 +34,6 @@ git = "https://github.com/PistonDevelopers/freetype-rs"
 
 [dependencies.clock_ticks]
 git = "https://github.com/tomaka/clock_ticks"
+
+[[bin]]
+name = "rid3"
