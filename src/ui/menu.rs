@@ -35,15 +35,15 @@ impl<B> RectBounded for Bar<B> where Flow<dir::Right, B>: Layout {
     }
 }
 
-impl<E, B> Dispatch<E> for Bar<B> where B: Dispatch<E> {
-    fn dispatch(&self, ev: &E) {
-        self.buttons.dispatch(ev);
-    }
-}
-
 impl<B> Draw for Bar<B> where B: Draw {
     fn draw(&self, cx: &mut DrawCx) {
         self.buttons.draw(cx);
+    }
+}
+
+impl<E, B> Dispatch<E> for Bar<B> where B: Dispatch<E> {
+    fn dispatch(&self, ev: &E) -> bool {
+        self.buttons.dispatch(ev)
     }
 }
 
@@ -93,23 +93,23 @@ impl Draw for Button {
 }
 
 impl Dispatch<MouseDown> for Button {
-    fn dispatch(&self, _: &MouseDown) {
-        self.down.set(true);
+    fn dispatch(&self, _: &MouseDown) -> bool {
+        if !self.down.get() { self.down.set(true); true } else { false }
     }
 }
 
 impl Dispatch<MouseUp> for Button {
-    fn dispatch(&self, _: &MouseUp) {
-        self.down.set(false);
+    fn dispatch(&self, _: &MouseUp) -> bool {
+        if self.down.get() { self.down.set(false); true } else { false }
     }
 }
 
 impl Dispatch<MouseMove> for Button {
-    fn dispatch(&self, ev: &MouseMove) {
-        self.over.set(self.bb().contains(ev.pos()));
+    fn dispatch(&self, ev: &MouseMove) -> bool {
+        let over = self.bb().contains(ev.pos());
+        if over != self.over.get() { self.over.set(over); true } else { false }
     }
 }
 
-impl Dispatch<MouseScroll> for Button {
-    fn dispatch(&self, _: &MouseScroll) {}
-}
+impl Dispatch<MouseScroll> for Button {}
+impl Dispatch<Update> for Button {}

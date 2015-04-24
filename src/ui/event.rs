@@ -4,11 +4,12 @@ use ui::{Px, Flow};
 use ui::layout::Where;
 
 pub trait Dispatch<E> {
-    fn dispatch(&self, _ev: &E) {}
+    /// Process an event and return true if redoing layout or rendering is needed.
+    fn dispatch(&self, _ev: &E) -> bool { false }
 }
 
 impl<D, K, E> Dispatch<E> for Flow<D, K> where K: Dispatch<E> {
-    fn dispatch(&self, ev: &E) {
+    fn dispatch(&self, ev: &E) -> bool {
         self.kids.dispatch(ev)
     }
 }
@@ -16,9 +17,8 @@ impl<D, K, E> Dispatch<E> for Flow<D, K> where K: Dispatch<E> {
 impl<A, B, E> Dispatch<E> for (A, B) where
            A: Dispatch<E>,
            B: Dispatch<E> {
-    fn dispatch(&self, ev: &E) {
-        self.0.dispatch(ev);
-        self.1.dispatch(ev);
+    fn dispatch(&self, ev: &E) -> bool {
+        self.0.dispatch(ev) | self.1.dispatch(ev)
     }
 }
 
@@ -75,3 +75,5 @@ pub type MouseScroll = Mouse<mouse::Scroll>;
 impl MouseScroll {
     pub fn delta(&self) -> [Px; 2] { self.data.0 }
 }
+
+pub struct Update;

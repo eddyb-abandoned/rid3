@@ -89,9 +89,11 @@ fn main() {
 
     let (mut x, mut y) = (0.0, 0.0);
     let mut cursor = gfx::MouseCursor::Default;
+    let mut dirty = true;
+
     let window = &Rc::new(RefCell::new(window));
     for e in window.events() {
-        if let Some(args) = e.render_args() {
+        if let (true, Some(args)) = (dirty, e.render_args()) {
             let viewport = args.viewport();
             let sz = viewport.draw_size;
             let frame = factory.borrow_mut().make_fake_output(sz[0] as u16, sz[1] as u16);
@@ -113,6 +115,7 @@ fn main() {
 
             device.submit(renderer.as_buffer());
             renderer.reset();
+            dirty = false;
         }
 
         if let Some(_) = e.after_render_args() {
@@ -121,22 +124,26 @@ fn main() {
         }
 
         if let Some(Button::Mouse(MouseButton::Left)) = e.press_args() {
-            root.dispatch(&ui::event::MouseDown::new(x, y));
+            dirty |= root.dispatch(&ui::event::MouseDown::new(x, y));
         }
 
         if let Some(Button::Mouse(MouseButton::Left)) = e.release_args() {
-            root.dispatch(&ui::event::MouseUp::new(x, y));
+            dirty |= root.dispatch(&ui::event::MouseUp::new(x, y));
         }
 
         if let Some([nx, ny]) = e.mouse_cursor_args() {
             x = nx as Px;
             y = ny as Px;
-            root.dispatch(&ui::event::MouseMove::new(x, y));
+            dirty |= root.dispatch(&ui::event::MouseMove::new(x, y));
         }
 
         if let Some([dx, dy]) = e.mouse_scroll_args() {
-            root.dispatch(&ui::event::MouseScroll::with(x, y,
+            dirty |= root.dispatch(&ui::event::MouseScroll::with(x, y,
                 ui::event::mouse::Scroll([dx as Px, dy as Px])));
+        }
+
+        if let Some(_) = e.update_args() {
+            dirty |= root.dispatch(&ui::event::Update);
         }
     }
 }

@@ -71,23 +71,23 @@ impl Draw for Demo {
 }
 
 impl Dispatch<MouseDown> for Demo {
-    fn dispatch(&self, _: &MouseDown) {
-        self.down.set(true);
+    fn dispatch(&self, _: &MouseDown) -> bool {
+        if !self.down.get() { self.down.set(true); true } else { false }
     }
 }
 
 impl Dispatch<MouseUp> for Demo {
-    fn dispatch(&self, _: &MouseUp) {
-        self.down.set(false);
+    fn dispatch(&self, _: &MouseUp) -> bool {
+        if self.down.get() { self.down.set(false); true } else { false }
     }
 }
 
 impl Dispatch<MouseMove> for Demo {
-    fn dispatch(&self, ev: &MouseMove) {
-        self.over.set(self.bb().contains(ev.pos()));
+    fn dispatch(&self, ev: &MouseMove) -> bool {
+        let over = self.bb().contains(ev.pos());
+        if over != self.over.get() { self.over.set(over); true } else { false }
     }
 }
 
-impl Dispatch<MouseScroll> for Demo {
-    fn dispatch(&self, _: &MouseScroll) {}
-}
+impl Dispatch<MouseScroll> for Demo {}
+impl Dispatch<Update> for Demo {}
