@@ -173,13 +173,49 @@ impl Editor {
         }
     }
 
-    fn insert(&self, data: &str) {
-        let mut k = self.caret.get();
+    fn remove(&self, range: Range<Caret>) {
+        let (s1, s2) = (range.start, range.end);
+        let mut lines = self.lines.borrow_mut();
 
+        // Remove part of the first line.
+        if s1.row == s2.row {
+            let line = &mut lines[s1.row].data;
+
+            let final_len = line.len() - (s2.offset - s1.offset);
+            while line.len() > final_len {
+                line.remove(s1.offset);
+            }
+        } else {
+            lines[s1.row].data.truncate(s1.offset);
+        }
+
+        // Add part of last line to first line (if range has at least 2 lines).
+        if s1.row < s2.row {
+            let (dest, src) = lines[s1.row..].split_at_mut(1);
+            let dest = &mut dest[0].data;
+            let src = &mut src[s2.row - s1.row - 1].data;
+
+            dest.push_str(&src[s2.offset..]);
+        }
+
+        // Remove all other lines.
+        for _ in s1.row+1..s2.row+1 {
+            lines.remove(s1.row + 1);
+        }
+    }
+
+    fn insert(&self, data: &str) {
+        let (s1, s2) = (self.selection_start.get(), self.caret.get());
+        let (s1, s2) = (min(s1, s2), max(s1, s2));
+
+        if s1 != s2 {
+            self.remove(s1..s2);
+        }
+
+        let mut k = s1;
         {
             let mut lines = self.lines.borrow_mut();
             let line = &mut lines[k.row].data;
-
             for ch in data.chars() {
                 line.insert(k.offset, ch);
                 k.offset += ch.len_utf8();
