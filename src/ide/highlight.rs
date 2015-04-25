@@ -71,7 +71,14 @@ macro_rules! goto {
 
 #[cfg(not(test))]
 macro_rules! cases {
-    ($s:expr, $ds:ident:) => { $s.advance(1, styles::$ds) };
+    ($s:expr, $ds:ident:) => { {
+        let ch_len = {
+            let mut idx = $s.current_line.char_indices().map(|(i, _)| i);
+            idx.next();
+            idx.next().unwrap_or($s.current_line.len())
+        };
+        $s.advance(ch_len, styles::$ds)
+    } };
     ($s:expr, $ds:ident: $re:expr; $($rest:tt)*) => { cases!($s, $ds: $re, $ds => {}; $($rest)*) };
     ($s:expr, $ds:ident: $re:expr => $goto:tt; $($rest:tt)*) => { cases!($s, $ds: $re, $ds => $goto; $($rest)*) };
     ($s:expr, $ds:ident: $re:expr, $style:ident; $($rest:tt)*) => { cases!($s, $ds: $re, $style => {}; $($rest)*) };
