@@ -178,10 +178,28 @@ impl Editor {
         Some(Caret { row: row, col: col, offset: offset })
     }
 
-    fn move_to(&self, caret: Caret) {
-        self.selection_start.set(caret);
-        self.caret.set(caret);
+    fn move_to(&self, k: Caret, hold: bool) {
+        if !hold {
+            self.selection_start.set(k);
+        }
+        self.caret.set(k);
         self.blink_phase.set(0.0);
+
+        // Make sure the caret stays in the viewport.
+        let scroll_start = self.scroll_start.get();
+        if k.row < scroll_start {
+            self.scroll_start.set(k.row);
+        } else {
+            let metrics = self.font_metrics.get();
+            let bb = self.bb();
+            let h = bb.y2 - bb.y1;
+            if metrics.height != 0.0 && h > 0.0 {
+                let rows = (h / metrics.height) as usize;
+                if k.row >= scroll_start + rows {
+                    self.scroll_start.set(k.row - rows + 1);
+                }
+            }
+        }
     }
 
     fn update_hl(&self, mut range: Range<usize>) {
@@ -377,10 +395,14 @@ impl Draw for Editor {
 
 impl Dispatch<MouseDown> for Editor {
     fn dispatch(&self, ev: &MouseDown) -> bool {
+        if !self.bb().contains([ev.x, ev.y]) {
+            return false;
+        }
+
         self.down.set(true);
 
         if let Some(caret) = self.pos_to_caret([ev.x, ev.y]) {
-            self.move_to(caret);
+            self.move_to(caret, false);
             true
         } else {
             false
@@ -406,7 +428,7 @@ impl Dispatch<MouseMove> for Editor {
 
         if let Some(caret) = self.pos_to_caret([ev.x, ev.y]) {
             if self.down.get() {
-                self.caret.set(caret);
+                self.move_to(caret, true);
                 dirty = true;
             }
         }
