@@ -115,8 +115,8 @@ fn main() {
                 ui::event::mouse::Scroll([dx as Px, dy as Px])));
         }
 
-        if let Some(_) = e.update_args() {
-            dirty |= root.dispatch(&ui::event::Update);
+        if let Some(args) = e.update_args() {
+            dirty |= root.dispatch(&ui::event::Update(args.dt as f32));
         }
 
         if let Some(_) = e.resize_args() {

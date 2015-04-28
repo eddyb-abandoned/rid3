@@ -63,6 +63,7 @@ impl MouseScroll {
     pub fn delta(&self) -> [Px; 2] { self.data.0 }
 }
 
-pub struct Update;
 
 pub struct TextInput<'a>(pub &'a str);
+
+pub struct Update(pub f32);

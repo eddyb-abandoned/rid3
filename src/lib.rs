@@ -4,7 +4,6 @@
 #![plugin(regex_macros)]
 extern crate regex;
 extern crate arena;
-extern crate clock_ticks;
 
 extern crate graphics;
 extern crate gfx as gfx_core;

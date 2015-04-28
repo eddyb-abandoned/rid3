@@ -6,7 +6,6 @@ use std::fs;
 use std::io::Read;
 use std::ops::Range;
 use std::path::Path;
-use clock_ticks;
 
 use cfg::ColorScheme;
 use gfx::MouseCursor;
@@ -29,7 +28,9 @@ pub struct Editor {
     font_metrics: Cell<Metrics>,
     over: Cell<bool>,
     down: Cell<bool>,
-    blink_phase: Cell<bool>,
+
+    // Caret is visible between [0, 0.5) and hidden between [0.5, 1).
+    blink_phase: Cell<f32>,
     scroll_start: Cell<usize>,
 
     selection_start: Cell<Caret>,
@@ -99,9 +100,9 @@ impl Editor {
             font_metrics: Cell::new(Metrics::default()),
             over: Cell::new(false),
             down: Cell::new(false),
-            blink_phase: Cell::new(false),
             scroll_start: Cell::new(0),
 
+            blink_phase: Cell::new(0.0),
             selection_start: Cell::new(caret),
             caret: Cell::new(caret),
 
@@ -148,6 +149,7 @@ impl Editor {
     fn move_to(&self, caret: Caret) {
         self.selection_start.set(caret);
         self.caret.set(caret);
+        self.blink_phase.set(0.0);
     }
 
     fn update_hl(&self, mut range: Range<usize>) {
@@ -318,7 +320,7 @@ impl Draw for Editor {
         }
 
         // Caret on top of everything else.
-        if self.blink_phase.get() && start <= k.row && k.row <= end {
+        if self.blink_phase.get() < BLINK_SPACING && start <= k.row && k.row <= end {
             let y = bb.y1 + ((k.row - start) as Px * metrics.height);
 
             // TODO proper BB scissoring.
@@ -405,11 +407,17 @@ impl Dispatch<MouseScroll> for Editor {
     }
 }
 
+const BLINK_SPACING: f32 = 0.5;
+
 impl Dispatch<Update> for Editor {
-    fn dispatch(&self, _: &Update) -> bool {
-        const SECOND: u64 = 1_000_000_000;
-        let phase = clock_ticks::precise_time_ns() % SECOND > SECOND / 2;
-        if phase != self.blink_phase.get() { self.blink_phase.set(phase); true } else { false }
+    fn dispatch(&self, &Update(dt): &Update) -> bool {
+        let mut dirty = false;
+
+        let blink = (self.blink_phase.get() + dt) % (BLINK_SPACING * 2.0);
+        dirty |= (blink >= BLINK_SPACING) != (self.blink_phase.get() >= BLINK_SPACING);
+        self.blink_phase.set(blink);
+
+        dirty
     }
 }
 
