@@ -1,5 +1,7 @@
 use std::default::Default;
 
+pub use piston::input::keyboard::Key;
+
 use ui::Px;
 
 pub trait Dispatch<E> {
@@ -63,6 +65,8 @@ impl MouseScroll {
     pub fn delta(&self) -> [Px; 2] { self.data.0 }
 }
 
+pub struct KeyDown(pub Key);
+pub struct KeyUp(pub Key);
 
 pub struct TextInput<'a>(pub &'a str);
 

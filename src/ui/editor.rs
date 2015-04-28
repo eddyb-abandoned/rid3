@@ -513,3 +513,9 @@ impl<'a> Dispatch<TextInput<'a>> for Editor {
         }
     }
 }
+
+impl Dispatch<KeyDown> for Editor {
+}
+
+impl Dispatch<KeyUp> for Editor {
+}

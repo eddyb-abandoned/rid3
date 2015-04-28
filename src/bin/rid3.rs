@@ -100,8 +100,16 @@ fn main() {
             dirty |= root.dispatch(&ui::event::MouseDown::new(x, y));
         }
 
+        if let Some(Button::Keyboard(key)) = e.press_args() {
+            dirty |= root.dispatch(&ui::event::KeyDown(key));
+        }
+
         if let Some(Button::Mouse(MouseButton::Left)) = e.release_args() {
             dirty |= root.dispatch(&ui::event::MouseUp::new(x, y));
+        }
+
+        if let Some(Button::Keyboard(key)) = e.release_args() {
+            dirty |= root.dispatch(&ui::event::KeyUp(key));
         }
 
         if let Some([nx, ny]) = e.mouse_cursor_args() {
