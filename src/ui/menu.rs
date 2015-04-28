@@ -4,7 +4,7 @@ use std::default::Default;
 use cfg::ColorScheme;
 
 use ui::dir;
-use ui::layout::{RectBB, RectBounded, ConstrainCx, Layout, Where};
+use ui::layout::{RectBB, RectBounded, ConstrainCx, Layout};
 use ui::color::Scheme;
 use ui::draw::{Draw, DrawCx};
 use ui::event::*;
@@ -108,7 +108,7 @@ impl Dispatch<MouseUp> for Button {
 
 impl Dispatch<MouseMove> for Button {
     fn dispatch(&self, ev: &MouseMove) -> bool {
-        let over = self.bb().contains(ev.pos());
+        let over = self.bb().contains([ev.x, ev.y]);
         if over != self.over.get() { self.over.set(over); true } else { false }
     }
 }

@@ -710,14 +710,6 @@ impl<T> Layout for T where T: RectBounded {
     }
 }
 
-pub trait Hit<H> {
-    fn hit(&self, H);
-}
-
-pub trait Where {
-    fn pos(&self) -> [Px; 2];
-}
-
 #[cfg(test)]
 mod test {
     extern crate test;

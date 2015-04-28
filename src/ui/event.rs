@@ -1,7 +1,6 @@
 use std::default::Default;
 
 use ui::Px;
-use ui::layout::Where;
 
 pub trait Dispatch<E> {
     /// Process an event and return true if redoing layout or rendering is needed.
@@ -36,12 +35,6 @@ impl<T> Mouse<T> {
             y: y,
             data: data
         }
-    }
-}
-
-impl<T> Where for Mouse<T> {
-    fn pos(&self) -> [Px; 2] {
-        [self.x, self.y]
     }
 }
 

@@ -14,7 +14,7 @@ use glyph::Metrics;
 use graphics::character::CharacterCache;
 
 use ui::{BB, Px};
-use ui::layout::{RectBB, RectBounded, Layout, Where};
+use ui::layout::{RectBB, RectBounded, Layout};
 use ui::color::Scheme;
 use ui::draw::{Draw, DrawCx};
 use ui::event::*;
@@ -338,7 +338,7 @@ impl Dispatch<MouseDown> for Editor {
     fn dispatch(&self, ev: &MouseDown) -> bool {
         self.down.set(true);
 
-        if let Some(caret) = self.pos_to_caret(ev.pos()) {
+        if let Some(caret) = self.pos_to_caret([ev.x, ev.y]) {
             self.move_to(caret);
             true
         } else {
@@ -356,14 +356,14 @@ impl Dispatch<MouseUp> for Editor {
 
 impl Dispatch<MouseMove> for Editor {
     fn dispatch(&self, ev: &MouseMove) -> bool {
-        let over = self.bb().contains(ev.pos());
+        let over = self.bb().contains([ev.x, ev.y]);
         let mut dirty = false;
         if over != self.over.get() {
             self.over.set(over);
             dirty = true;
         }
 
-        if let Some(caret) = self.pos_to_caret(ev.pos()) {
+        if let Some(caret) = self.pos_to_caret([ev.x, ev.y]) {
             if self.down.get() {
                 self.caret.set(caret);
                 dirty = true;

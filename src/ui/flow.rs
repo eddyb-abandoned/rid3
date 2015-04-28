@@ -1,5 +1,5 @@
 use ui::{BB, Px, Dir};
-use ui::layout::{Layout, CollectCx, CollectBB, Hit, Where};
+use ui::layout::{Layout, CollectCx, CollectBB};
 use ui::draw::{Draw, DrawCx};
 use ui::event::Dispatch;
 
@@ -85,47 +85,6 @@ impl<D, A, B> FlowLayout<D> for (A, B) where
         BB {
             x1: a.x1, y1: a.y1,
             x2: b.x2, y2: b.y2
-        }
-    }
-}
-
-pub trait FlowHit<D, H> {
-    fn hit(&self, D, H);
-}
-
-impl<D: Copy, K, H> Hit<H> for Flow<D, K> where K: FlowHit<D, H> {
-    fn hit(&self, hit: H) {
-        self.kids.hit(self.dir, hit)
-    }
-}
-
-impl<D, T, H> FlowHit<D, H> for T where T: Hit<H> {
-    fn hit(&self, _: D, hit: H) {
-        self.hit(hit)
-    }
-}
-
-impl<D, A, B, H> FlowHit<D, H> for (A, B) where
-           A: Layout + Hit<H>,
-           B: FlowHit<D, H>,
-           H: Where,
-           D: Copy,
-           Dir: From<D> {
-    fn hit(&self, dir: D, hit: H) {
-        let [x, y] = hit.pos();
-        let a = self.0.bb();
-
-        let in_a = match Dir::from(dir) {
-            Dir::Up => y >= a.y1,
-            Dir::Down => y < a.y2,
-            Dir::Left => x >= a.x1,
-            Dir::Right => x < a.x2
-        };
-
-        if in_a {
-            self.0.hit(hit);
-        } else {
-            self.1.hit(dir, hit);
         }
     }
 }
