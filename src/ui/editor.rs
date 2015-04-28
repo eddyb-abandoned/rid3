@@ -46,6 +46,26 @@ struct Caret {
     offset: usize
 }
 
+impl Caret {
+    fn advance(&mut self, c: char, forward: bool) {
+        let w = if c == '\t' {
+            // FIXME this won't work backwards.
+            7 - (self.col + 7) % 8
+        } else {
+            c.width(false).unwrap_or(1)
+        };
+        let l = c.len_utf8();
+
+        if forward {
+            self.col += w;
+            self.offset += l;
+        } else {
+            self.col -= w;
+            self.offset -= l;
+        }
+    }
+}
+
 impl PartialEq for Caret {
     fn eq(&self, other: &Caret) -> bool {
         self.row == other.row && self.col == other.col
@@ -129,16 +149,28 @@ impl Editor {
         if x < 0.0 || y < 0.0 {
             return None;
         }
-        let row = (y / metrics.height) as usize + self.scroll_start.get();
 
-        let mut x2 = 0.0;
-        let mut col = 0;
-        let mut offset = 0;
-        for c in self.lines.borrow()[row].data.chars() {
-            let w = c.width(false).unwrap_or(1);
-            x2 += w as Px * metrics.width;
-            if x2 > x {
-                break;
+        let mut k = Caret {
+            row:  (y / metrics.height) as usize + self.scroll_start.get(),
+            col: 0,
+            offset: 0
+        };
+
+        let lines = self.lines.borrow();
+        if k.row >= lines.len() {
+            return None;
+        }
+
+        for c in lines[k.row].data.chars() {
+            let prev_k = k;
+            k.advance(c, true);
+            if k.col as Px * metrics.width > x {
+                return Some(prev_k);
+            }
+        }
+        Some(k)
+    }
+
             }
             col += w;
             offset += c.len_utf8();
@@ -307,15 +339,22 @@ impl Draw for Editor {
         // The actual text in each line.
         for (i, line) in lines.iter().enumerate() {
             let y = bb.y1 + i as Px * metrics.height;
-            let mut pos = 0;
+            let mut draw_k = Caret {
+                row: 0,
+                col: 0,
+                offset: 0
+            };
             for &(len, style) in &line.ranges {
-                let x = bb.x1 + (pos as Px) * metrics.width;
+                let x = bb.x1 + (draw_k.col as Px) * metrics.width;
+                let data = &line.data[draw_k.offset..draw_k.offset+len];
                 if style.bold {
-                    self.font_bold.draw(cx, [x, y], style.color, &line.data[pos..pos+len]);
+                    self.font_bold.draw(cx, [x, y], style.color, data);
                 } else {
-                    self.font.draw(cx, [x, y], style.color, &line.data[pos..pos+len]);
+                    self.font.draw(cx, [x, y], style.color, data);
                 }
-                pos += len;
+                for c in data.chars() {
+                    draw_k.advance(c, true);
+                }
             }
         }
 
