@@ -97,15 +97,21 @@ struct Line {
     ranges: Vec<(usize, highlight::Style)>
 }
 
+impl Line {
+    fn new(data: String) -> Line {
+        Line {
+            data: data,
+            hl_depth: 1,
+            ranges: vec![]
+        }
+    }
+}
+
 impl Editor {
     pub fn open<P: AsRef<Path>>(path: P) -> Editor {
         let mut data = String::new();
         fs::File::open(path).unwrap().read_to_string(&mut data).unwrap();
-        let lines = data.split('\n').map(|line| Line {
-            data: line.to_owned(),
-            hl_depth: 1,
-            ranges: vec![]
-        }).collect();
+        let lines = data.split('\n').map(|line| Line::new(line.to_owned())).collect();
 
         let caret = Caret {
             row: 0,
@@ -267,16 +273,31 @@ impl Editor {
         let mut k = s1;
         {
             let mut lines = self.lines.borrow_mut();
-            let line = &mut lines[k.row].data;
-            for ch in data.chars() {
-                line.insert(k.offset, ch);
-                k.offset += ch.len_utf8();
-                k.col += 1;
+            for c in data.chars() {
+                match c {
+                    '\n' => {
+                        let new_line = Line::new(lines[k.row].data[k.offset..].to_owned());
+                        lines[k.row].data.truncate(k.offset);
+                        lines.insert(k.row + 1, new_line);
+                        k.row += 1;
+                        k.col = 0;
+                        k.offset = 0;
+                    }
+                    '\t' => for _ in (k.col % 4)..4 {
+                        lines[k.row].data.insert(k.offset, ' ');
+                        k.offset += 1;
+                        k.col += 1;
+                    },
+                    _ => {
+                        lines[k.row].data.insert(k.offset, c);
+                        k.advance(c, true);
+                    }
+                }
             }
         }
 
-        self.update_hl(k.row..k.row+1);
-        self.move_to(k);
+        self.update_hl(s1.row..k.row+1);
+        self.move_to(k, false);
     }
 }
 
