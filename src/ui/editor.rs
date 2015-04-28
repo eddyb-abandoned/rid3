@@ -6,13 +6,14 @@ use std::fs;
 use std::io::Read;
 use std::ops::Range;
 use std::path::Path;
+use std::usize;
 
 use cfg::ColorScheme;
 use gfx::MouseCursor;
 use glyph::Metrics;
 use graphics::character::CharacterCache;
 
-use ui::{BB, Px};
+use ui::{BB, Dir, Px};
 use ui::layout::{RectBB, RectBounded, Layout};
 use ui::color::Scheme;
 use ui::draw::{Draw, DrawCx};
@@ -31,10 +32,14 @@ pub struct Editor {
 
     // Caret is visible between [0, 0.5) and hidden between [0.5, 1).
     blink_phase: Cell<f32>,
+    // Key and delay until the next repeat.
+    held_key: Cell<Option<(Key, f32)>>,
+
     scroll_start: Cell<usize>,
 
     selection_start: Cell<Caret>,
     caret: Cell<Caret>,
+    vertical_col: Cell<usize>,
 
     lines: RefCell<Vec<Line>>
 }
@@ -93,6 +98,7 @@ impl Ord for Caret {
 #[derive(Debug)]
 struct Line {
     data: String,
+    columns: usize,
     hl_depth: usize,
     ranges: Vec<(usize, highlight::Style)>
 }
@@ -101,9 +107,18 @@ impl Line {
     fn new(data: String) -> Line {
         Line {
             data: data,
+            columns: 0,
             hl_depth: 1,
             ranges: vec![]
         }
+    }
+
+    fn update_columns(&mut self) {
+        let mut k = Caret { row: 0, col: 0, offset: 0 };
+        for c in self.data.chars() {
+            k.advance(c, true);
+        }
+        self.columns = k.col;
     }
 }
 
@@ -129,8 +144,11 @@ impl Editor {
             scroll_start: Cell::new(0),
 
             blink_phase: Cell::new(0.0),
+            held_key: Cell::new(None),
+
             selection_start: Cell::new(caret),
             caret: Cell::new(caret),
+            vertical_col: Cell::new(0),
 
             lines: RefCell::new(lines)
         };
@@ -177,11 +195,69 @@ impl Editor {
         Some(k)
     }
 
+    /// Move a caret forwards or backwards, wrapping at line ends.
+    fn advance_caret(&self, mut k: Caret, dir: Dir) -> Caret {
+        let lines = self.lines.borrow();
+        let line = &lines[k.row];
+
+        match dir {
+            Dir::Right => {
+                if let Some(c) = line.data[k.offset..].chars().next() {
+                    k.advance(c, true);
+                } else if k.row + 1 < lines.len() {
+                    k.row += 1;
+                    k.col = 0;
+                    k.offset = 0;
+                }
             }
-            col += w;
-            offset += c.len_utf8();
+            Dir::Left => {
+                if let Some(c) = line.data[..k.offset].chars().next_back() {
+                    k.advance(c, false);
+                } else if k.row > 0 {
+                    k.row -= 1;
+                    k.col = lines[k.row].columns;
+                    k.offset = lines[k.row].data.len();
+                }
+            }
+            Dir::Down => {
+                if k.row + 1 < lines.len() {
+                    k.row += 1;
+                } else {
+                    k.col = usize::MAX;
+                }
+            }
+            Dir::Up => {
+                if k.row > 0 {
+                    k.row -= 1;
+                } else {
+                    k.col = 0;
+                }
+            }
         }
-        Some(Caret { row: row, col: col, offset: offset })
+
+        match dir {
+            Dir::Down | Dir::Up => {
+                if k.col > lines[k.row].columns {
+                    // Move to the end of the line.
+                    k.col = lines[k.row].columns;
+                    k.offset = lines[k.row].data.len();
+                } else {
+                    // Find the caret position at the same column.
+                    let target = k.col;
+                    k.col = 0;
+                    k.offset = 0;
+                    for c in lines[k.row].data.chars() {
+                        if k.col >= target {
+                            break;
+                        }
+                        k.advance(c, true);
+                    }
+                }
+            }
+            _ => {}
+        }
+
+        k
     }
 
     fn move_to(&self, k: Caret, hold: bool) {
@@ -189,6 +265,7 @@ impl Editor {
             self.selection_start.set(k);
         }
         self.caret.set(k);
+        self.vertical_col.set(k.col);
         self.blink_phase.set(0.0);
 
         // Make sure the caret stays in the viewport.
@@ -228,6 +305,7 @@ impl Editor {
         for (line, (hl_depth, ranges)) in lines[range].iter_mut().zip(hl.into_iter()) {
             line.hl_depth = hl_depth;
             line.ranges = ranges;
+            line.update_columns();
         }
     }
 
@@ -298,6 +376,48 @@ impl Editor {
 
         self.update_hl(s1.row..k.row+1);
         self.move_to(k, false);
+    }
+
+    fn press(&self, key: Key) -> bool {
+        let (s1, s2) = (self.selection_start.get(), self.caret.get());
+        let mut k = s2;
+        let (mut s1, mut s2) = (min(s1, s2), max(s1, s2));
+
+        match key {
+            Key::Return => self.insert("\n"),
+            Key::Tab => self.insert("\t"),
+            Key::Delete => {
+                if s1 == s2 {
+                    s2 = self.advance_caret(s1, Dir::Right);
+                }
+                self.remove(s1..s2);
+                self.update_hl(s1.row..s1.row+1);
+                self.move_to(s1, false);
+            }
+            Key::Backspace => {
+                if s1 == s2 {
+                    s1 = self.advance_caret(s2, Dir::Left);
+                }
+                self.remove(s1..s2);
+                self.update_hl(s1.row..s1.row+1);
+                self.move_to(s1, false);
+            }
+            // TODO shift support.
+            Key::Left => self.move_to(self.advance_caret(k, Dir::Left), false),
+            Key::Right => self.move_to(self.advance_caret(k, Dir::Right), false),
+            Key::Down => {
+                k.col = self.vertical_col.get();
+                self.move_to(self.advance_caret(k, Dir::Down), false);
+                self.vertical_col.set(k.col);
+            }
+            Key::Up => {
+                k.col = self.vertical_col.get();
+                self.move_to(self.advance_caret(k, Dir::Up), false);
+                self.vertical_col.set(k.col);
+            }
+            _ => return false
+        }
+        true
     }
 }
 
@@ -490,6 +610,8 @@ impl Dispatch<MouseScroll> for Editor {
 }
 
 const BLINK_SPACING: f32 = 0.5;
+const KEY_REPEAT_DELAY: f32 = 0.660;
+const KEY_REPEAT_SPACING: f32 = 1.0 / 25.0;
 
 impl Dispatch<Update> for Editor {
     fn dispatch(&self, &Update(dt): &Update) -> bool {
@@ -498,6 +620,15 @@ impl Dispatch<Update> for Editor {
         let blink = (self.blink_phase.get() + dt) % (BLINK_SPACING * 2.0);
         dirty |= (blink >= BLINK_SPACING) != (self.blink_phase.get() >= BLINK_SPACING);
         self.blink_phase.set(blink);
+
+        if let Some((key, d)) = self.held_key.get() {
+            let mut d = d - dt;
+            while d <= 0.0 {
+                dirty |= self.press(key);
+                d += KEY_REPEAT_SPACING;
+            }
+            self.held_key.set(Some((key, d)));
+        }
 
         dirty
     }
@@ -515,7 +646,19 @@ impl<'a> Dispatch<TextInput<'a>> for Editor {
 }
 
 impl Dispatch<KeyDown> for Editor {
+    fn dispatch(&self, &KeyDown(key): &KeyDown) -> bool {
+        self.held_key.set(Some((key, KEY_REPEAT_DELAY)));
+        self.press(key)
+    }
 }
 
 impl Dispatch<KeyUp> for Editor {
+    fn dispatch(&self, &KeyUp(key): &KeyUp) -> bool {
+        if let Some((k, _)) = self.held_key.get() {
+            if k == key {
+                self.held_key.set(None);
+            }
+        }
+        false
+    }
 }
