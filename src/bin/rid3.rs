@@ -30,7 +30,7 @@ use ui::text::FontFaces;
 
 fn main() {
     let mut window = GlutinWindow::new(
-        OpenGL::_3_2,
+        OpenGL::_2_1,
         WindowSettings::new(
             "rid3".to_string(),
             Size { width: 800, height: 600 }
@@ -79,7 +79,9 @@ fn main() {
                 };
                 draw_cx.draw(&root);
                 if (draw_cx.cursor as usize) != (cursor as usize) {
-                    window.borrow_mut().window.set_cursor(draw_cx.cursor);
+                    if !cfg!(windows) {
+                        window.borrow_mut().window.set_cursor(draw_cx.cursor);
+                    }
                     cursor = draw_cx.cursor;
                 }
             });
