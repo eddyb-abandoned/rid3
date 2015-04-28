@@ -484,7 +484,11 @@ impl Dispatch<Update> for Editor {
 
 impl<'a> Dispatch<TextInput<'a>> for Editor {
     fn dispatch(&self, ev: &TextInput) -> bool {
-        self.insert(ev.0);
-        true
+        if !ev.0.is_empty() {
+            self.insert(ev.0);
+            true
+        } else {
+            false
+        }
     }
 }
