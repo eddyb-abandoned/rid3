@@ -18,7 +18,7 @@ use ui::layout::{RectBB, RectBounded, Layout};
 use ui::color::Scheme;
 use ui::draw::{Draw, DrawCx};
 use ui::event::*;
-use ui::text::{self, FontFace};
+use ui::text;
 
 use ide::highlight;
 
@@ -507,9 +507,9 @@ impl Draw for Editor {
                 let x = bb.x1 + (draw_k.col as Px) * metrics.width;
                 let data = &line.data[draw_k.offset..draw_k.offset+len];
                 if style.bold {
-                    self.font_bold.draw(cx, [x, y], style.color, data);
+                    cx.text(self.font_bold, [x, y], style.color, data);
                 } else {
-                    self.font.draw(cx, [x, y], style.color, data);
+                    cx.text(self.font, [x, y], style.color, data);
                 }
                 for c in data.chars() {
                     draw_k.advance(c, true);

@@ -11,23 +11,9 @@ use ui::layout::{RectBounded, RectBB, ConstrainCx, Layout};
 
 // TODO use a text layouting engine
 
-pub trait FontFace {
+pub trait FontFace: Copy {
     fn size(&self) -> FontSize { 10 }
     fn cache<'a>(&self, fonts: &'a mut FontFaces) -> &'a mut GlyphCache;
-    fn draw(&self, cx: &mut DrawCx, pos: [Px; 2], color: Color, text: &str) {
-        use graphics::*;
-
-        let [x, y] = pos;
-        let cache = self.cache(&mut cx.fonts);
-        let y = y + cache.metrics(self.size()).baseline;
-        text::Text::colored(color, self.size()).draw(
-            text,
-            cache,
-            default_draw_state(),
-            cx.transform.trans(x as f64, y as f64),
-            cx.gfx
-        );
-    }
 }
 
 macro_rules! font_faces {
@@ -90,6 +76,6 @@ impl<F> RectBounded for Label<F> where F: FontFace {
 impl<F> Draw for Label<F> where F: FontFace {
     fn draw(&self, cx: &mut DrawCx) {
         let bb = self.bb();
-        self.font.draw(cx, [bb.x1, bb.y1], self.color.get(), self.text);
+        cx.text(self.font, [bb.x1, bb.y1], self.color.get(), self.text);
     }
 }

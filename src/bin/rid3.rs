@@ -68,26 +68,23 @@ fn main() {
             let viewport = args.viewport();
             let sz = viewport.draw_size;
             let frame = factory.borrow_mut().make_fake_output(sz[0] as u16, sz[1] as u16);
-            g2d.draw(&mut renderer, &frame, viewport, |c, g| {
-                ui::layout::compute(&root, &mut fonts, sz[0] as Px, sz[1] as Px);
-                graphics::clear(cfg::ColorScheme.background(), g);
-                let mut draw_cx = DrawCx {
-                    gfx: g,
-                    fonts: &mut fonts,
-                    transform: c.transform,
-                    cursor: gfx::MouseCursor::Default
-                };
+
+            ui::layout::compute(&root, &mut fonts, sz[0] as Px, sz[1] as Px);
+
+            {
+                let mut draw_cx = DrawCx::new(&mut g2d, &mut renderer, &frame, viewport, &mut fonts);
+                draw_cx.clear(cfg::ColorScheme.background());
                 draw_cx.draw(&root);
+
                 if (draw_cx.cursor as usize) != (cursor as usize) {
                     if !cfg!(windows) {
                         window.borrow_mut().window.set_cursor(draw_cx.cursor);
                     }
                     cursor = draw_cx.cursor;
                 }
-            });
+            }
 
             device.submit(renderer.as_buffer());
-            renderer.reset();
             dirty = false;
         }
 
