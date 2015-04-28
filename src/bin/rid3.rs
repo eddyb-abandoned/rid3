@@ -44,9 +44,9 @@ fn main() {
     let factory = Rc::new(RefCell::new(factory));
 
     let mut fonts = FontFaces {
-        regular: gfx::GlyphCache::new("assets/NotoSans/NotoSans-Regular.ttf", factory.clone()).unwrap(),
-        mono: gfx::GlyphCache::new("assets/Hasklig/Hasklig-Regular.otf", factory.clone()).unwrap(),
-        mono_bold: gfx::GlyphCache::new("assets/Hasklig/Hasklig-Bold.otf", factory.clone()).unwrap()
+        regular: gfx::GlyphCache::from_data(include_bytes!("../../assets/NotoSans/NotoSans-Regular.ttf"), factory.clone()).unwrap(),
+        mono: gfx::GlyphCache::from_data(include_bytes!("../../assets/Hasklig/Hasklig-Regular.otf"), factory.clone()).unwrap(),
+        mono_bold: gfx::GlyphCache::from_data(include_bytes!("../../assets/Hasklig/Hasklig-Bold.otf"), factory.clone()).unwrap()
     };
 
     let menu_bar = menu_bar![

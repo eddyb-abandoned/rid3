@@ -65,6 +65,17 @@ impl<R, F> GlyphCache<R, F> where R: gfx::Resources, F: gfx::Factory<R> {
         })
     }
 
+    pub fn from_data(font: &'static [u8], factory: Rc<RefCell<F>>) -> Result<Self, Error> {
+        let freetype = try!(ft::Library::init());
+        let face = try!(freetype.new_memory_face(font, 0));
+        Ok(GlyphCache {
+            face: face,
+            factory: factory,
+            metrics: HashMap::new(),
+            data: HashMap::new()
+        })
+    }
+
     pub fn metrics(&mut self, size: FontSize) -> Metrics {
         self.face.set_pixel_sizes(0, size).unwrap();
         self.face.load_char('┼' as usize, ft::face::DEFAULT).unwrap();
