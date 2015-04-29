@@ -13,15 +13,18 @@ pub struct DrawCx<'a> {
     inside_overlay: bool
 }
 
+fn gamma_pre_correct([r, g, b, a]: gfx::Color) -> gfx::Color {
+    fn ch(x: f32) -> f32 { ((x + 0.055) / 1.055).powf(2.4) }
+    [ch(r), ch(g), ch(b), a]
+}
+
 impl<'a> DrawCx<'a> {
     pub fn new(g2d: &'a mut gfx::G2d,
-               renderer: &'a mut gfx::Renderer,
-               output: &'a gfx::Output,
+               surface: &'a mut gfx::Surface,
                viewport: gfx::Viewport,
                fonts: &'a mut text::FontFaces) -> DrawCx<'a> {
-        renderer.reset();
         DrawCx {
-            gfx: gfx::BackEnd::new(renderer, output, g2d),
+            gfx: gfx::BackEnd::new(g2d, surface),
             fonts: fonts,
             cursor: gfx::MouseCursor::Default,
             transform: graphics::Context::new_viewport(viewport).transform,
@@ -59,13 +62,13 @@ impl<'a> DrawCx<'a> {
     }
 
     pub fn clear(&mut self, color: gfx::Color) {
-        self.with_gfx(|gfx| graphics::clear(color, gfx));
+        self.with_gfx(|gfx| graphics::clear(gamma_pre_correct(color), gfx));
     }
 
     pub fn rect(&mut self, bb: BB<Px>, color: gfx::Color) {
         let transform = self.transform;
         self.with_gfx(|gfx| {
-            graphics::rectangle(color,
+            graphics::rectangle(gamma_pre_correct(color),
                 [bb.x1 as f64, bb.y1 as f64,
                  (bb.x2 - bb.x1)  as f64, (bb.y2 - bb.y1)  as f64],
                 transform, gfx);
@@ -81,7 +84,7 @@ impl<'a> DrawCx<'a> {
 
         let cache = font.cache(self.fonts);
         let y = y + cache.metrics(font.size()).baseline;
-        text::Text::colored(color, font.size()).draw(
+        text::Text::colored(gamma_pre_correct(color), font.size()).draw(
             text,
             cache,
             default_draw_state(),

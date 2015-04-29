@@ -6,6 +6,7 @@ authors = ["Eduard-Mihai Burtescu <edy.burt@gmail.com>"]
 [dependencies]
 regex = "*"
 regex_macros = "*"
+image = "*"
 
 [dependencies.piston]
 git = "https://github.com/PistonDevelopers/piston"
@@ -19,18 +20,22 @@ git = "https://github.com/PistonDevelopers/glutin_window"
 [dependencies.piston2d-graphics]
 git = "https://github.com/PistonDevelopers/graphics"
 
-[dependencies.piston2d-gfx_graphics]
-git = "https://github.com/PistonDevelopers/gfx_graphics"
-
-[dependencies.gfx]
-git = "https://github.com/gfx-rs/gfx-rs"
-
-[dependencies.gfx_device_gl]
-git = "https://github.com/gfx-rs/gfx_device_gl"
+[dependencies.glium]
+git = "https://github.com/tomaka/glium"
+features = ["image"]
+default_features = false
 
 [dependencies.freetype-rs]
 git = "https://github.com/PistonDevelopers/freetype-rs"
 
+[dependencies.pistoncore-window]
+git = "https://github.com/PistonDevelopers/window"
+
+[dependencies.shader_version]
+git = "https://github.com/PistonDevelopers/shader_version"
+
+[dependencies.piston-shaders_graphics2d]
+git = "https://github.com/PistonDevelopers/shaders"
 
 [[bin]]
 name = "rid3"

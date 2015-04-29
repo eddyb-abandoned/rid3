@@ -2,7 +2,6 @@
 
 extern crate freetype as ft;
 
-use std::cell::RefCell;
 use std::collections::hash_map::{HashMap, Entry};
 use std::path::Path;
 use std::rc::Rc;
@@ -10,31 +9,12 @@ use std::rc::Rc;
 use graphics::character::{CharacterCache, Character};
 use graphics::types::FontSize;
 use self::ft::render_mode::RenderMode;
-use gfx_graphics::Texture;
-use gfx_core as gfx;
+use glium::backend::Facade;
+use glium::{Texture2d, Texture};
+use image::{Rgba, ImageBuffer};
+use back_end::DrawTexture;
 
 use ui::Px;
-
-/// An enum to represent various possible run-time errors that may occur.
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum Error {
-    /// An error happened when creating a gfx texture.
-    Texture(gfx::tex::TextureError),
-    /// An error happened with the FreeType library.
-    Freetype(ft::error::Error)
-}
-
-impl From<gfx::tex::TextureError> for Error {
-    fn from(tex_err: gfx::tex::TextureError) -> Self {
-        Error::Texture(tex_err)
-    }
-}
-
-impl From<ft::error::Error> for Error {
-    fn from(ft_err: ft::error::Error) -> Self {
-        Error::Freetype(ft_err)
-    }
-}
 
 #[derive(Copy, Clone, Default)]
 pub struct Metrics {
@@ -44,33 +24,33 @@ pub struct Metrics {
 }
 
 /// A struct used for caching rendered font.
-pub struct GlyphCache<R, F> where R: gfx::Resources, F: gfx::Factory<R> {
+pub struct GlyphCache<F: Facade> {
     /// The font face.
     pub face: ft::Face<'static>,
-    factory: Rc<RefCell<F>>,
+    facade: Rc<F>,
     metrics: HashMap<FontSize, Metrics>,
-    data: HashMap<(FontSize, char), Character<Texture<R>>>
+    data: HashMap<(FontSize, char), Character<DrawTexture>>
 }
 
-impl<R, F> GlyphCache<R, F> where R: gfx::Resources, F: gfx::Factory<R> {
+impl<F: Facade> GlyphCache<F> {
     /// Constructor for a GlyphCache.
-    pub fn new<P: AsRef<Path>>(font: P, factory: Rc<RefCell<F>>) -> Result<Self, Error> {
+    pub fn new<P: AsRef<Path>>(font: P, facade: Rc<F>) -> Result<Self, ft::error::Error> {
         let freetype = try!(ft::Library::init());
         let face = try!(freetype.new_face(font.as_ref(), 0));
         Ok(GlyphCache {
             face: face,
-            factory: factory,
+            facade: facade,
             metrics: HashMap::new(),
             data: HashMap::new()
         })
     }
 
-    pub fn from_data(font: &'static [u8], factory: Rc<RefCell<F>>) -> Result<Self, Error> {
+    pub fn from_data(font: &'static [u8], facade: Rc<F>) -> Result<Self, ft::error::Error> {
         let freetype = try!(ft::Library::init());
         let face = try!(freetype.new_memory_face(font, 0));
         Ok(GlyphCache {
             face: face,
-            factory: factory,
+            facade: facade,
             metrics: HashMap::new(),
             data: HashMap::new()
         })
@@ -95,8 +75,8 @@ impl<R, F> GlyphCache<R, F> where R: gfx::Resources, F: gfx::Factory<R> {
     }
 }
 
-impl<R, F> CharacterCache for GlyphCache<R, F> where R: gfx::Resources, F: gfx::Factory<R> {
-    type Texture = Texture<R>;
+impl<F: Facade> CharacterCache for GlyphCache<F> {
+    type Texture = DrawTexture;
 
     fn character(&mut self, size: FontSize, ch: char) -> &Character<Self::Texture> {
         match self.data.entry((size, ch)) {
@@ -108,7 +88,6 @@ impl<R, F> CharacterCache for GlyphCache<R, F> where R: gfx::Resources, F: gfx::
                 let glyph = self.face.glyph().get_glyph().unwrap();
                 let bitmap_glyph = glyph.to_bitmap(RenderMode::Normal, None).unwrap();
                 let bitmap = bitmap_glyph.bitmap();
-                let mut factory = self.factory.borrow_mut();
                 v.insert(Character {
                     offset: [
                         bitmap_glyph.left() as f64,
@@ -118,15 +97,16 @@ impl<R, F> CharacterCache for GlyphCache<R, F> where R: gfx::Resources, F: gfx::
                         (glyph.advance_x() >> 16) as f64,
                         (glyph.advance_y() >> 16) as f64
                     ],
-                    texture: if ch != ' ' {
-                        Texture::from_memory_alpha(
-                            &mut *factory,
-                            bitmap.buffer(),
-                            bitmap.width() as u32,
-                            bitmap.rows() as u32)
+                    texture: DrawTexture::new(if bitmap.width() != 0 {
+                        Texture2d::new(&*self.facade,
+                            ImageBuffer::<Rgba<u8>, _>::from_raw(
+                                bitmap.width() as u32, bitmap.rows() as u32,
+                                bitmap.buffer().iter().flat_map(|&x| vec![255, 255, 255, x].into_iter()).collect::<Vec<_>>()
+                            ).expect("failed to create glyph texture")
+                        )
                     } else {
-                        Texture::empty(&mut *factory).unwrap()
-                    }
+                        Texture2d::empty(&*self.facade, 1, 1)
+                    })
                 })
             }
         }

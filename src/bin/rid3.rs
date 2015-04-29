@@ -1,21 +1,21 @@
 #![feature(slice_patterns)]
 
 extern crate graphics;
-extern crate gfx as gfx_core;
-extern crate gfx_device_gl as gfx_device;
-extern crate gfx_graphics;
+extern crate glium;
 extern crate piston;
 extern crate glutin_window;
 
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use gfx_core::traits::*;
-use gfx_graphics::Gfx2d;
+//use gfx_core::traits::*;
+//use gfx_graphics::Gfx2d;
 
 use piston::event::*;
 use piston::input::{Button, MouseButton};
-use piston::window::{WindowSettings, Size, OpenGLWindow};
+use piston::window::{WindowSettings, Size};
+use r3::back_end::Glium2d;
+use r3::window::GliumWindow;
 use glutin_window::{GlutinWindow, OpenGL};
 
 #[macro_use]
@@ -29,24 +29,22 @@ use ui::event::Dispatch;
 use ui::text::FontFaces;
 
 fn main() {
-    let mut window = GlutinWindow::new(
-        OpenGL::_2_1,
+    let opengl = OpenGL::_2_1;
+    let ref window = Rc::new(RefCell::new(GlutinWindow::new(
+        opengl,
         WindowSettings::new(
             "rid3".to_string(),
             Size { width: 800, height: 600 }
-        ).exit_on_esc(true)
-    );
+        ).exit_on_esc(false)
+    )));
+    let glium_window = Rc::new(GliumWindow::new(window).unwrap());
 
-    let (mut device, mut factory) = gfx_device::create(|s| window.get_proc_address(s));
-    let mut renderer = factory.create_renderer();
-    let mut g2d = Gfx2d::new(&mut device, &mut factory);
-
-    let factory = Rc::new(RefCell::new(factory));
+    let mut g2d = Glium2d::new(opengl, &*glium_window);
 
     let mut fonts = FontFaces {
-        regular: gfx::GlyphCache::from_data(include_bytes!("../../assets/NotoSans/NotoSans-Regular.ttf"), factory.clone()).unwrap(),
-        mono: gfx::GlyphCache::from_data(include_bytes!("../../assets/Hasklig/Hasklig-Regular.otf"), factory.clone()).unwrap(),
-        mono_bold: gfx::GlyphCache::from_data(include_bytes!("../../assets/Hasklig/Hasklig-Bold.otf"), factory.clone()).unwrap()
+        regular: gfx::GlyphCache::from_data(include_bytes!("../../assets/NotoSans/NotoSans-Regular.ttf"), glium_window.clone()).unwrap(),
+        mono: gfx::GlyphCache::from_data(include_bytes!("../../assets/Hasklig/Hasklig-Regular.otf"), glium_window.clone()).unwrap(),
+        mono_bold: gfx::GlyphCache::from_data(include_bytes!("../../assets/Hasklig/Hasklig-Bold.otf"), glium_window.clone()).unwrap()
     };
 
     let menu_bar = menu_bar![
@@ -67,17 +65,16 @@ fn main() {
     let mut cursor = gfx::MouseCursor::Default;
     let mut dirty = true;
 
-    let window = &Rc::new(RefCell::new(window));
     for e in window.events() {
         if let (true, Some(args)) = (dirty, e.render_args()) {
             let viewport = args.viewport();
             let sz = viewport.draw_size;
-            let frame = factory.borrow_mut().make_fake_output(sz[0] as u16, sz[1] as u16);
 
             ui::layout::compute(&root, &mut fonts, sz[0] as Px, sz[1] as Px);
 
+            let mut surface = glium_window.draw();
             {
-                let mut draw_cx = DrawCx::new(&mut g2d, &mut renderer, &frame, viewport, &mut fonts);
+                let mut draw_cx = DrawCx::new(&mut g2d, &mut surface, viewport, &mut fonts);
                 draw_cx.clear(cfg::ColorScheme.background());
                 draw_cx.draw(&root);
 
@@ -88,14 +85,9 @@ fn main() {
                     cursor = draw_cx.cursor;
                 }
             }
+            surface.finish();
 
-            device.submit(renderer.as_buffer());
             dirty = false;
-        }
-
-        if let Some(_) = e.after_render_args() {
-            device.after_frame();
-            factory.borrow_mut().cleanup();
         }
 
         if let Some(Button::Mouse(MouseButton::Left)) = e.press_args() {
