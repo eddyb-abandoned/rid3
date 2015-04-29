@@ -757,7 +757,7 @@ impl Draw for Editor {
             }
 
             // Draw separator.
-            if separator > start_col {
+            if separator > 0 {
                 let separator = bb.x1 + (separator as Px + 1.0) * metrics.width;
                 cx.rect(BB {
                     x1: separator - 1.0, x2: separator + 1.0,
