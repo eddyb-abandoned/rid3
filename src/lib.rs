@@ -1,4 +1,3 @@
-#![cfg_attr(test, feature(test))]
 #![feature(alloc, catch_panic, core, plugin, rustc_private, slice_patterns, unicode)]
 #![plugin(regex_macros)]
 extern crate regex;

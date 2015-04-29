@@ -12,7 +12,6 @@ git = "https://github.com/PistonDevelopers/piston"
 
 [dependencies.glutin]
 git = "https://github.com/tomaka/glutin"
-features = ["headless"]
 
 [dependencies.pistoncore-glutin_window]
 git = "https://github.com/PistonDevelopers/glutin_window"
