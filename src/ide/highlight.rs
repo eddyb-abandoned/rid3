@@ -322,7 +322,7 @@ macro_rules! normal_like {
         re!(r"#!\["), Attribute => attribute;
         re!(rust_ident!(), "::"), Scope;
         re!(rust_ident!(), "!"), Macro;
-        //re!("'", rust_ident!(), "(?!')"), Lifetime;
+        re!("'", rust_ident!()/*, "(?!')"*/), Lifetime;
         re!(r"[{}\[\]]"), Symbol;
         re!("r\""), String => raw_string;
         re!("r##\""), String => raw_hashed2;
