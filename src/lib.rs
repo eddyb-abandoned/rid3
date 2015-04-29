@@ -1,6 +1,5 @@
 #![cfg_attr(test, feature(test))]
-#![feature(plugin, rustc_private, slice_patterns, unicode)]
-
+#![feature(alloc, catch_panic, core, plugin, rustc_private, slice_patterns, unicode)]
 #![plugin(regex_macros)]
 extern crate regex;
 extern crate arena;
@@ -43,5 +42,6 @@ pub mod cfg {
 pub mod ui;
 
 pub mod ide {
+    pub mod rustc;
     pub mod highlight;
 }
