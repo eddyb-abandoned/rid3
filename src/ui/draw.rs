@@ -7,7 +7,10 @@ pub struct DrawCx<'a> {
     gfx: gfx::BackEnd<'a>,
     pub fonts: &'a mut text::FontFaces,
     pub cursor: gfx::MouseCursor,
-    transform: gfx::Mat2
+    transform: gfx::Mat2,
+    overlay_requested: bool,
+    overlay_drawing: bool,
+    inside_overlay: bool
 }
 
 impl<'a> DrawCx<'a> {
@@ -21,17 +24,38 @@ impl<'a> DrawCx<'a> {
             gfx: gfx::BackEnd::new(renderer, output, g2d),
             fonts: fonts,
             cursor: gfx::MouseCursor::Default,
-            transform: graphics::Context::new_viewport(viewport).transform
+            transform: graphics::Context::new_viewport(viewport).transform,
+            overlay_requested: false,
+            overlay_drawing: false,
+            inside_overlay: false
         }
     }
 
     pub fn draw<T: Draw>(&mut self, x: &T) {
         x.draw(self);
+        if self.overlay_requested {
+            self.overlay_drawing = true;
+            x.draw(self);
+            self.overlay_drawing = false;
+            self.overlay_requested = false;
         }
     }
 
-    pub fn with_gfx<F, T>(&mut self, f: F) -> T where F: FnOnce(&mut gfx::BackEnd) -> T {
-        f(&mut self.gfx)
+    pub fn draw_overlay<F, T>(&mut self, f: F) -> T where F: FnOnce(&mut DrawCx) -> T {
+        assert!(!self.inside_overlay);
+        self.inside_overlay = true;
+        let r = f(self);
+        self.inside_overlay = false;
+        self.overlay_requested = true;
+        r
+    }
+
+    pub fn with_gfx<F, T>(&mut self, f: F) -> Option<T> where F: FnOnce(&mut gfx::BackEnd) -> T {
+        if self.inside_overlay == self.overlay_drawing {
+            Some(f(&mut self.gfx))
+        } else {
+            None
+        }
     }
 
     pub fn clear(&mut self, color: gfx::Color) {
@@ -50,6 +74,10 @@ impl<'a> DrawCx<'a> {
 
     pub fn text<F: text::FontFace>(&mut self, font: F, [x, y]: [Px; 2], color: gfx::Color, text: &str) {
         use graphics::*;
+
+        if self.inside_overlay != self.overlay_drawing {
+            return;
+        }
 
         let cache = font.cache(self.fonts);
         let y = y + cache.metrics(font.size()).baseline;
