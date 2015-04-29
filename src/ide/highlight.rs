@@ -403,7 +403,8 @@ pub mod base_styles {
     }
 
     styles!{
-        Normal => (239,240,241);
+        // BreezeDark.
+        /*Normal => (239,240,241);
         Keyword => (239,240,241), bold=true;
         Function => (246,116,0);
         DataType => (41,128,185);
@@ -415,6 +416,21 @@ pub mod base_styles {
         Comment => (189,195,199);
         RegionMarker => (41,128,185);
         Others => (39,174,96);
+        Error => (218,68,83);*/
+
+        // Default kate5 colors.
+        Normal => (31,28,27);
+        Keyword => (31,28,27), bold=true;
+        Function => (100,74,155);
+        DataType => (0,87,174);
+        DecVal => (176,128,0);
+        BaseN => (176,128,0);
+        Float => (176,128,0);
+        Char => (146,76,157);
+        String => (191,3,3);
+        Comment => (137,136,135);
+        RegionMarker => (0,87,174);
+        Others => (0,110,40);
         Error => (218,68,83);
     }
 }

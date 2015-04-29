@@ -34,7 +34,7 @@ pub mod gfx {
 }
 
 pub mod cfg {
-    pub use ui::color::BreezeDark as ColorScheme;
+    pub use ui::color::Breeze as ColorScheme;
 }
 
 #[macro_use]
