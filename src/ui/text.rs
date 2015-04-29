@@ -12,7 +12,7 @@ use ui::layout::{RectBounded, RectBB, ConstrainCx, Layout};
 // TODO use a text layouting engine
 
 pub trait FontFace: Copy {
-    fn size(&self) -> FontSize { 10 }
+    fn size(&self) -> FontSize { 14 }
     fn cache<'a>(&self, fonts: &'a mut FontFaces) -> &'a mut GlyphCache;
 }
 

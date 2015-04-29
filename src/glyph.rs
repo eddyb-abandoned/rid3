@@ -85,9 +85,10 @@ impl<R, F> GlyphCache<R, F> where R: gfx::Resources, F: gfx::Factory<R> {
             Entry::Occupied(v) => *v.get(),
             Entry::Vacant(v) => {
                 *v.insert(Metrics {
-                    width: (bb.xMax - bb.xMin - 2) as Px,
+                    width: (glyph.advance_x() >> 16) as Px,
+                    //width: (bb.xMax - bb.xMin - 2) as Px,
                     height: (bb.yMax - bb.yMin - 2) as Px,
-                    baseline: (bb.yMax - 1) as Px
+                    baseline: (bb.yMax - 2) as Px
                 })
             }
         }
