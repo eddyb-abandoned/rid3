@@ -6,7 +6,7 @@ use std::fs;
 use std::io::{self, Read, Write};
 use std::iter::repeat;
 use std::ops::Range;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::usize;
 
 use cfg::ColorScheme;
@@ -19,6 +19,7 @@ use ui::layout::{RectBB, RectBounded, Layout};
 use ui::color::Scheme;
 use ui::draw::{Draw, DrawCx};
 use ui::event::*;
+use ui::tab;
 use ui::text;
 
 use ide::{highlight, rustc};
@@ -49,7 +50,11 @@ pub struct Editor {
     // Starting row & column, separator column and content.
     overlay: RefCell<(usize, usize, usize, Vec<Line>)>,
 
+    // Path to the file on disk.
+    path: PathBuf,
+
     lines: RefCell<Vec<Line>>,
+    unsaved: Cell<bool>,
 
     rustc: RefCell<Rustc>,
     new_rustc: RefCell<Option<Rustc>>,
@@ -167,7 +172,9 @@ impl Editor {
             hover: Cell::new(None),
             overlay: RefCell::new((0, 0, 0, vec![])),
 
+            path: path.to_path_buf(),
             lines: RefCell::new(lines),
+            unsaved: Cell::new(false),
 
             rustc: RefCell::new(Rustc::start(data)),
             new_rustc: RefCell::new(None),
@@ -178,6 +185,11 @@ impl Editor {
         editor.update_hl(0..num_lines, false);
 
         editor
+    }
+
+    pub fn save(&self) {
+        self.write_data(fs::File::open(&self.path).unwrap()).unwrap();
+        self.unsaved.set(false);
     }
 
     fn build_overlay(&self, k: Caret, diagnostics: &[(rustc::Level, usize, String)], types: &mut [(Range<usize>, String)])
@@ -415,8 +427,8 @@ impl Editor {
         }
     }
 
-    fn update_hl(&self, mut range: Range<usize>, do_rustc: bool) {
-        if do_rustc {
+    fn update_hl(&self, mut range: Range<usize>, dirty: bool) {
+        if dirty {
             let rustc_dirty = self.rustc_dirty.get();
             if rustc_dirty == (0, 0) {
                 self.rustc_dirty.set((range.start, range.end));
@@ -424,6 +436,7 @@ impl Editor {
                 self.rustc_dirty.set((min(range.start, rustc_dirty.0), max(range.end, rustc_dirty.1)));
             }
             *self.new_rustc.borrow_mut() = Some(Rustc::start(self.data_to_string()));
+            self.unsaved.set(true);
         }
 
         let mut lines = self.lines.borrow_mut();
@@ -569,6 +582,16 @@ impl Editor {
 impl RectBounded for Editor {
     fn rect_bb(&self) -> &RectBB { &self.bb }
     fn name(&self) -> &'static str { "<editor>" }
+}
+
+impl tab::Tab for Editor {
+    fn title(&self) -> String {
+        let mut title = self.path.file_name().unwrap().to_string_lossy().into_owned();
+        if self.unsaved.get() {
+            title.push('*');
+        }
+        title
+    }
 }
 
 impl Draw for Editor {

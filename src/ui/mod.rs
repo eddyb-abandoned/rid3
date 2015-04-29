@@ -36,15 +36,16 @@ macro_rules! dir_ty {
 pub mod color;
 pub mod draw;
 pub mod event;
+pub mod layout;
 pub mod text;
 
 #[macro_use]
 pub mod flow;
 #[macro_use]
 pub mod menu;
-pub mod editor;
+pub mod tab;
 
-pub mod layout;
+pub mod editor;
 
 pub type Px = f32;
 

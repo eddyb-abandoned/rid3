@@ -55,8 +55,13 @@ fn main() {
         ui::menu::Button::new("Settings"),
         ui::menu::Button::new("Help"),
     ];
-    let editor = ui::editor::Editor::open("src/bin/rid3.rs");
-    let root = flow![down: menu_bar, editor];
+    let mut tab_set = ui::tab::Set::new();
+
+    for file in std::env::args().skip(1) {
+        tab_set.add(ui::editor::Editor::open(file));
+    }
+
+    let mut root = flow![down: menu_bar, tab_set];
 
     let (mut x, mut y) = (0.0, 0.0);
     let mut cursor = gfx::MouseCursor::Default;
