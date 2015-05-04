@@ -196,7 +196,8 @@ impl Editor {
     }
 
     pub fn save(&self) {
-        self.write_data(fs::File::open(&self.path).unwrap()).unwrap();
+        println!("Saving {:?}...", self.path);
+        self.write_data(fs::File::create(&self.path).unwrap()).unwrap();
         self.unsaved.set(false);
     }
 

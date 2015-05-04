@@ -1,15 +1,13 @@
-#![feature(slice_patterns)]
+#![feature(collections, slice_patterns)]
 
 extern crate graphics;
 extern crate glium;
 extern crate piston;
 extern crate glutin_window;
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
+use std::path::PathBuf;
 use std::rc::Rc;
-
-//use gfx_core::traits::*;
-//use gfx_graphics::Gfx2d;
 
 use piston::event::*;
 use piston::input::{Button, MouseButton};
@@ -49,19 +47,23 @@ fn main() {
         mono_bold: gfx::GlyphCache::from_data(include_bytes!("../../assets/Hasklig/Hasklig-Bold.otf"), glium_window.clone()).unwrap()
     };
 
-    let menu_bar = menu_bar![
-        ui::menu::Button::new("File"),
-        ui::menu::Button::new("Edit"),
-        ui::menu::Button::new("Settings"),
-        ui::menu::Button::new("Help"),
+    let open_queue = RefCell::new(std::env::args().skip(1).map(PathBuf::from).collect::<Vec<_>>());
+    let save_current = Cell::new(false);
+    let run_current = Cell::new(false);
+    let close_current = Cell::new(false);
+
+    let tool_bar = tool_bar![
+        ui::tool::Button::new("Open", || {
+            open_queue.borrow_mut().extend(ui::dialog::open_file().into_iter())
+        }),
+        ui::tool::Button::new("Save", || save_current.set(true)),
+        ui::tool::Button::new("Run", || {
+            save_current.set(true);
+            run_current.set(true);
+        }),
+        ui::tool::Button::new("Close", || close_current.set(true))
     ];
-    let mut tab_set = ui::tab::Set::new();
-
-    for file in std::env::args().skip(1) {
-        tab_set.add(ui::editor::Editor::open(file));
-    }
-
-    let mut root = flow![down: menu_bar, tab_set];
+    let mut root = flow![down: tool_bar, ui::tab::Set::<ui::editor::Editor>::new()];
 
     let (mut x, mut y) = (0.0, 0.0);
     let mut cursor = gfx::MouseCursor::Default;
@@ -128,5 +130,44 @@ fn main() {
         }
 
         e.text(|s| dirty |= root.dispatch(&ui::event::TextInput(s)));
+
+        if save_current.get() {
+            root.kids.1.current().map(|e| e.save());
+            save_current.set(false);
+            dirty = true;
+        }
+
+        if run_current.get() {
+            root.kids.1.current().map(|e| {
+                println!("{}", std::iter::repeat('\n').take(200).collect::<String>());
+                r3::ide::rustc::compile_and_run(e.path());
+            });
+            run_current.set(false);
+        }
+
+        if close_current.get() {
+            let is_unsaved = root.kids.1.current().and_then(|e| {
+                if e.is_saved() {
+                    None
+                } else {
+                    Some(())
+                }
+            }).is_some();
+            if is_unsaved {
+                println!("Save file first!");
+            } else {
+                root.kids.1.remove();
+                dirty = true;
+            }
+            close_current.set(false);
+        }
+
+        {
+            let mut q = open_queue.borrow_mut();
+            for file in q.drain() {
+                root.kids.1.add(ui::editor::Editor::open(file));
+                dirty = true;
+            }
+        }
     }
 }
