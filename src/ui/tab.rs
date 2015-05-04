@@ -29,7 +29,14 @@ impl<T> Set<T> {
     }
 
     pub fn add(&mut self, x: T) {
-        self.tabs.push(x);
+        let current = self.current.get();
+        let current = if current + 1 >= self.tabs.len() {
+            current
+        } else {
+            current + 1
+        };
+        self.tabs.insert(current, x);
+        self.current.set(current);
     }
 
     pub fn remove(&mut self) -> Option<T> {
