@@ -14,14 +14,79 @@ use self::rustc::middle::{self, stability, ty};
 use self::rustc::util::ppaux::UserString;
 use self::rustc_driver::driver;
 
+use std::env;
 use std::collections::HashMap;
 use std::ops::Range;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::str;
 use std::sync::Arc;
 use std::sync::mpsc::{channel, Sender, Receiver};
 use std::thread;
+
+#[cfg(windows)]
+const EXE_SUFFIX: &'static str = "exe";
+#[cfg(not(windows))]
+const EXE_SUFFIX: &'static str = "";
+
+fn get_rustc_dir_path() -> PathBuf {
+    if cfg!(windows) {
+        env::current_exe().unwrap().parent().unwrap().to_path_buf()
+    } else {
+        let out = Command::new("which").arg("rustc").output().unwrap();
+        if !out.status.success() {
+            panic!("Failed to get rustc path: {}", String::from_utf8(out.stderr).unwrap());
+        }
+        Path::new(str::from_utf8(&out.stdout).unwrap().trim()).parent().unwrap().to_path_buf()
+    }
+}
+
+pub fn init_env() {
+    if cfg!(windows) {
+        // Set up %PATH% to be able to run the bundled `rustc.exe`.
+        if let Some(path) = env::var_os("PATH") {
+            let mut paths = env::split_paths(&path).collect::<Vec<_>>();
+            paths.push(get_rustc_dir_path());
+            let new_path = env::join_paths(paths.iter()).unwrap();
+            env::set_var("PATH", &new_path);
+        }
+    }
+}
+
+pub fn compile_and_run(path: &Path) {
+    let path = env::current_dir().unwrap().join(path);
+    assert!(path.is_absolute());
+    let exe = path.with_extension(EXE_SUFFIX);
+
+    // There seems to be a bug that Rust programs (including `rustc.exe`) ran with inherited
+    // std{in,out,err} via `.status()` or `.spawn()` produce a "`xyz.exe` has stopped working"
+    // message unconditionally.
+    if cfg!(windows) {
+        let out = Command::new("rustc").arg(&path).arg("-o").arg(&exe).output().unwrap();
+        println!("{}\n{}", String::from_utf8(out.stdout).unwrap(), String::from_utf8(out.stderr).unwrap());
+        if !out.status.success() {
+            println!("compilation failed");
+        } else {
+            match Command::new(&exe).output() {
+                Err(e) => {
+                    println!("failed to execute `{:?}`: {}", exe, e);
+                }
+                Ok(out) => {
+                    println!("{}\n{}", String::from_utf8(out.stdout).unwrap(),
+                                       String::from_utf8(out.stderr).unwrap());
+                }
+            }
+        }
+    } else {
+        if let Ok(status) = Command::new("rustc").arg(&path).arg("-o").arg(&exe).status() {
+            if status.success() {
+                if let Err(e) = Command::new(&exe).spawn() {
+                    println!("failed to execute `{:?}`: {}", exe, e);
+                }
+            }
+        }
+    }
+}
 
 enum Req {
     TypesAtOffset(usize, Range<usize>)
@@ -88,18 +153,10 @@ fn rustc_thread(input: String, mut lifeline: Arc<()>, rx: Receiver<Req>, tx: Sen
     }
     let input = config::Input::Str(input);
 
-    let rustc_path = if cfg!(windows) {
-        ::std::env::current_exe().unwrap()
-    } else {
-        let out = Command::new("which").arg("rustc").output().unwrap();
-        if !out.status.success() {
-            panic!("Failed to get rustc path: {}", String::from_utf8(out.stderr).unwrap());
-        }
-        PathBuf::from(str::from_utf8(&out.stdout).unwrap().trim())
-    };
+    let rustc_dir_path = get_rustc_dir_path();
 
     let sessopts = config::Options {
-        maybe_sysroot: Some(rustc_path.parent().unwrap().parent().unwrap().to_path_buf()),
+        maybe_sysroot: Some(rustc_dir_path.parent().unwrap().to_path_buf()),
         ..config::basic_options().clone()
     };
 

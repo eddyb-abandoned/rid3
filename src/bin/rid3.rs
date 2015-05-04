@@ -29,6 +29,8 @@ use ui::event::Dispatch;
 use ui::text::FontFaces;
 
 fn main() {
+    r3::ide::rustc::init_env();
+
     let opengl = OpenGL::_2_1;
     let ref window = Rc::new(RefCell::new(GlutinWindow::new(
         opengl,
