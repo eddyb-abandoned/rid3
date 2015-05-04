@@ -80,7 +80,7 @@ impl<T> Draw for Set<T> where T: Layout + Tab + Draw {
             cx.rect(BB {
                 x1: bb.x1, x2: bb.x1 + (self.tabs.len() as Px) * TAB_WIDTH,
                 y1: bb.y1, y2: bb.y1 + metrics.height * 2.0
-            }, ColorScheme.focus());
+            }, ColorScheme.inactive());
 
             for (i, tab) in self.tabs.iter().enumerate() {
                 let size = text::Regular.size();
@@ -91,11 +91,20 @@ impl<T> Draw for Set<T> where T: Layout + Tab + Draw {
                 let x = bb.x1 + (i as Px) * TAB_WIDTH;
                 cx.rect(BB {
                     x1: x + 1.0, x2: x + TAB_WIDTH - 1.0,
-                    y1: bb.y1, y2: bb.y1 + metrics.height * 2.0 - if i == current { 2.0 } else { 1.0 }
-                }, if i == current { ColorScheme.back_view() } else { ColorScheme.back_view_alt() });
+                    y1: bb.y1, y2: bb.y1 + metrics.height * 2.0
+                }, ColorScheme.background());
 
-                cx.text(text::Regular, [x + (TAB_WIDTH - w) / 2.0,
-                                        bb.y1 + metrics.height * 0.5],
+                // Focus highlight.
+                if i == current {
+                    let y = bb.y1 + metrics.height * 2.0 - 5.0;
+                    cx.rect(BB {
+                        x1: x + 3.0, x2: x + TAB_WIDTH - 3.0,
+                        y1: y, y2: y + 2.0
+                    }, ColorScheme.focus());
+                }
+
+                cx.text(text::Regular, [(x + (TAB_WIDTH - w) / 2.0).round(),
+                                        (bb.y1 + metrics.height * 0.5).round()],
                                         ColorScheme.normal(), &text);
             }
 
