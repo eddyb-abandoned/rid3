@@ -13,9 +13,15 @@ pub struct DrawCx<'a> {
     inside_overlay: bool
 }
 
+#[cfg(not(windows))]
 fn gamma_pre_correct([r, g, b, a]: gfx::Color) -> gfx::Color {
     fn ch(x: f32) -> f32 { ((x + 0.055) / 1.055).powf(2.4) }
     [ch(r), ch(g), ch(b), a]
+}
+
+#[cfg(windows)]
+fn gamma_pre_correct(color: gfx::Color) -> gfx::Color {
+    color
 }
 
 impl<'a> DrawCx<'a> {
