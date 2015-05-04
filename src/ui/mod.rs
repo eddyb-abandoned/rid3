@@ -43,6 +43,8 @@ pub mod text;
 pub mod flow;
 #[macro_use]
 pub mod menu;
+#[macro_use]
+pub mod tool;
 pub mod tab;
 
 pub mod dialog;
