@@ -50,6 +50,16 @@ impl<T> Set<T> {
             Some(self.tabs.remove(current))
         }
     }
+
+    pub fn current(&self) -> Option<&T> {
+        let current = self.current.get();
+        self.tabs.get(current)
+    }
+
+    pub fn current_mut(&mut self) -> Option<&mut T> {
+        let current = self.current.get();
+        self.tabs.get_mut(current)
+    }
 }
 
 impl<T: Layout> RectBounded for Set<T> {

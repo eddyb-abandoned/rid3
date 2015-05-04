@@ -187,6 +187,14 @@ impl Editor {
         editor
     }
 
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    pub fn is_saved(&self) -> bool {
+        !self.unsaved.get()
+    }
+
     pub fn save(&self) {
         self.write_data(fs::File::open(&self.path).unwrap()).unwrap();
         self.unsaved.set(false);
