@@ -11,6 +11,10 @@ extern crate piston;
 extern crate glutin;
 extern crate glutin_window;
 
+#[cfg(windows)]
+#[macro_use(shared_library)]
+extern crate shared_library;
+
 pub mod back_end;
 pub mod glyph;
 pub mod window;

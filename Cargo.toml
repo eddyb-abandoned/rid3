@@ -8,6 +8,14 @@ regex = "*"
 regex_macros = "*"
 image = "*"
 
+[target.i686-pc-windows-gnu.dependencies]
+winapi = "*"
+shared_library = "*"
+
+[target.x86_64-pc-windows-gnu.dependencies]
+winapi = "*"
+shared_library = "*"
+
 [dependencies.piston]
 git = "https://github.com/PistonDevelopers/piston"
 

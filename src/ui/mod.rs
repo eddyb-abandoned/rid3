@@ -45,6 +45,7 @@ pub mod flow;
 pub mod menu;
 pub mod tab;
 
+pub mod dialog;
 pub mod editor;
 
 pub type Px = f32;
