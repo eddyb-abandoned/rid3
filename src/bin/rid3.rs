@@ -1,4 +1,4 @@
-#![feature(collections, slice_patterns)]
+#![feature(collections_drain, slice_patterns)]
 
 extern crate graphics;
 extern crate glium;
@@ -160,7 +160,7 @@ fn main() {
 
         {
             let mut q = open_queue.borrow_mut();
-            for file in q.drain() {
+            for file in q.drain(..) {
                 root.kids.1.add(ui::editor::Editor::open(file));
                 dirty = true;
             }
