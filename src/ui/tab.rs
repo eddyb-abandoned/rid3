@@ -1,7 +1,5 @@
 use std::cell::Cell;
 
-use graphics::character::CharacterCache;
-
 use cfg::ColorScheme;
 
 use ui::{Px, BB};
@@ -9,7 +7,7 @@ use ui::layout::{RectBB, RectBounded, ConstrainCx, Layout};
 use ui::color::Scheme;
 use ui::draw::{Draw, DrawCx};
 use ui::event::*;
-use ui::text::{self, FontFace};
+use ui::text;
 
 pub struct Set<T> {
     bb: RectBB,
@@ -73,7 +71,7 @@ impl<T: Layout> RectBounded for Set<T> {
 
         let tb = self.tabs[current].collect(cx);
 
-        let height = cx.fonts.metrics(text::Regular).height * 2.0;
+        let height = cx.fonts().metrics(text::Regular).height * 2.0;
 
         cx.equal(bb.x1, tb.x1);
         cx.equal(tb.x2, bb.x2);
@@ -91,22 +89,21 @@ impl<T> Draw for Set<T> where T: Layout + Tab + Draw {
         let bb = self.bb();
         let current = self.current.get();
         if current < self.tabs.len() {
-            let metrics = cx.fonts.metrics(text::Regular);
+            let metrics = cx.fonts().metrics(text::Regular);
 
             // Background for all tabs.
-            cx.rect(BB {
+            cx.fill(BB {
                 x1: bb.x1, x2: bb.x1 + (self.tabs.len() as Px) * TAB_WIDTH,
                 y1: bb.y1, y2: bb.y1 + metrics.height * 2.0
             }, ColorScheme.inactive());
 
             for (i, tab) in self.tabs.iter().enumerate() {
-                let size = text::Regular.size();
                 let text = tab.title();
-                let w = text::Regular.cache(&mut cx.fonts).width(size, &text) as Px;
+                let w = cx.fonts().text_width(text::Regular, &text);
 
                 // Background for each tab.
                 let x = bb.x1 + (i as Px) * TAB_WIDTH;
-                cx.rect(BB {
+                cx.fill(BB {
                     x1: x + 1.0, x2: x + TAB_WIDTH - 1.0,
                     y1: bb.y1, y2: bb.y1 + metrics.height * 2.0
                 }, ColorScheme.background());
@@ -114,7 +111,7 @@ impl<T> Draw for Set<T> where T: Layout + Tab + Draw {
                 // Focus highlight.
                 if i == current {
                     let y = bb.y1 + metrics.height * 2.0 - 5.0;
-                    cx.rect(BB {
+                    cx.fill(BB {
                         x1: x + 3.0, x2: x + TAB_WIDTH - 3.0,
                         y1: y, y2: y + 2.0
                     }, ColorScheme.focus());

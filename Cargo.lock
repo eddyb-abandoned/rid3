@@ -7,13 +7,11 @@ dependencies = [
  "glutin 0.0.27 (git+https://github.com/tomaka/glutin)",
  "image 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "piston 0.1.1 (git+https://github.com/PistonDevelopers/piston)",
- "piston-shaders_graphics2d 0.0.0 (git+https://github.com/PistonDevelopers/shaders)",
  "piston2d-graphics 0.0.44 (git+https://github.com/PistonDevelopers/graphics)",
  "pistoncore-glutin_window 0.0.7 (git+https://github.com/PistonDevelopers/glutin_window)",
  "pistoncore-window 0.1.1 (git+https://github.com/pistondevelopers/window)",
  "regex 0.1.30 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex_macros 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)",
- "shader_version 0.0.6 (git+https://github.com/PistonDevelopers/shader_version)",
  "shared_library 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -341,11 +339,6 @@ dependencies = [
 name = "piston-float"
 version = "0.0.1"
 source = "git+https://github.com/pistondevelopers/float#2c73a3e34c384c79e95b35c069d5a69dda3a0cc4"
-
-[[package]]
-name = "piston-shaders_graphics2d"
-version = "0.0.0"
-source = "git+https://github.com/PistonDevelopers/shaders#a2cbd6c63b5cb6852f2bef9e28e04301bca96efe"
 
 [[package]]
 name = "piston-texture"

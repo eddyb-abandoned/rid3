@@ -87,7 +87,7 @@ impl RectBounded for Button {
 impl Draw for Button {
     fn draw(&self, cx: &mut DrawCx) {
         if self.over.get() && self.down.get() {
-            cx.rect(self.bb(), ColorScheme.focus());
+            cx.fill(self.bb(), ColorScheme.focus());
         }
 
         self.label.draw(cx);

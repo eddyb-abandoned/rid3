@@ -1,4 +1,4 @@
-use gfx::Color;
+pub type Color = [f32; 4];
 
 macro_rules! expr { ($x:expr) => ($x) } // HACK work around macro limitations
 

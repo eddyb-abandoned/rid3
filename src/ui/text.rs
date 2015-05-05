@@ -1,11 +1,10 @@
 use std::cell::Cell;
 use std::default::Default;
 
-use glyph::Metrics;
-use gfx::{Color, GlyphCache, FontSize};
-use graphics::character::CharacterCache;
+use glyph::{FontSize, Glyph, GlyphMetrics, GlyphCache};
 
 use ui::Px;
+use ui::color::Color;
 use ui::draw::{Draw, DrawCx};
 use ui::layout::{RectBounded, RectBB, ConstrainCx, Layout};
 
@@ -36,8 +35,17 @@ font_faces! {
 }
 
 impl FontFaces {
-    pub fn metrics<F>(&mut self, font: F) -> Metrics where F: FontFace {
+    pub fn metrics<F: FontFace>(&mut self, font: F) -> GlyphMetrics {
         font.cache(self).metrics(font.size())
+    }
+
+    pub fn glyph<F: FontFace>(&mut self, font: F, c: char) -> &Glyph {
+        font.cache(self).glyph(font.size(), c)
+    }
+
+    pub fn text_width<F: FontFace>(&mut self, font: F, text: &str) -> Px {
+        let cache = font.cache(self);
+        text.chars().map(|c| cache.glyph(font.size(), c).advance).sum()
     }
 }
 
@@ -63,10 +71,9 @@ impl<F> RectBounded for Label<F> where F: FontFace {
     fn rect_bb(&self) -> &RectBB { &self.bb }
     fn name(&self) -> &'static str { self.text }
     fn constrain<'a, 'b>(&'a self, (cx, bb): ConstrainCx<'b, 'a>) {
-        let size = self.font.size();
         let (w, h) = {
-            let cache = self.font.cache(&mut cx.fonts);
-            (cache.width(size, self.text) as Px, cache.metrics(size).height)
+            let fonts = cx.fonts();
+            (fonts.text_width(self.font, self.text), fonts.metrics(self.font).height)
         };
         cx.distance(bb.x1, bb.x2, w);
         cx.distance(bb.y1, bb.y2, h);

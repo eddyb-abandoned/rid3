@@ -1,6 +1,6 @@
 // NOTE converted from assets/kate-syntax/rust.xml
 
-use gfx::Color;
+use ui::color::Color;
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub struct Style {

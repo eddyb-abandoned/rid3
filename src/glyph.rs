@@ -6,35 +6,39 @@ use std::collections::hash_map::{HashMap, Entry};
 use std::path::Path;
 use std::rc::Rc;
 
-use graphics::character::{CharacterCache, Character};
-use graphics::types::FontSize;
 use self::ft::render_mode::RenderMode;
-use glium::backend::Facade;
-use glium::{Texture2d, Texture};
+use glium::Texture2d;
 use image::{Rgba, ImageBuffer};
-use back_end::DrawTexture;
+use window::GliumWindow as Window;
 
 use ui::Px;
+use ui::draw::DrawTexture;
+
+pub type FontSize = u32;
+
+#[derive(Clone)]
+pub struct Glyph {
+    pub offset: [Px; 2],
+    pub advance: Px,
+    pub texture: DrawTexture
+}
 
 #[derive(Copy, Clone, Default)]
-pub struct Metrics {
+pub struct GlyphMetrics {
     pub width: Px,
     pub height: Px,
     pub baseline: Px
 }
 
-/// A struct used for caching rendered font.
-pub struct GlyphCache<F: Facade> {
-    /// The font face.
+pub struct GlyphCache {
     pub face: ft::Face<'static>,
-    facade: Rc<F>,
-    metrics: HashMap<FontSize, Metrics>,
-    data: HashMap<(FontSize, char), Character<DrawTexture>>
+    facade: Rc<Window>,
+    metrics: HashMap<FontSize, GlyphMetrics>,
+    data: HashMap<(FontSize, char), Glyph>
 }
 
-impl<F: Facade> GlyphCache<F> {
-    /// Constructor for a GlyphCache.
-    pub fn new<P: AsRef<Path>>(font: P, facade: Rc<F>) -> Result<Self, ft::error::Error> {
+impl GlyphCache {
+    pub fn new<P: AsRef<Path>>(font: P, facade: Rc<Window>) -> Result<Self, ft::error::Error> {
         let freetype = try!(ft::Library::init());
         let face = try!(freetype.new_face(font.as_ref(), 0));
         Ok(GlyphCache {
@@ -45,7 +49,7 @@ impl<F: Facade> GlyphCache<F> {
         })
     }
 
-    pub fn from_data(font: &'static [u8], facade: Rc<F>) -> Result<Self, ft::error::Error> {
+    pub fn from_data(font: &'static [u8], facade: Rc<Window>) -> Result<Self, ft::error::Error> {
         let freetype = try!(ft::Library::init());
         let face = try!(freetype.new_memory_face(font, 0));
         Ok(GlyphCache {
@@ -56,7 +60,7 @@ impl<F: Facade> GlyphCache<F> {
         })
     }
 
-    pub fn metrics(&mut self, size: FontSize) -> Metrics {
+    pub fn metrics(&mut self, size: FontSize) -> GlyphMetrics {
         self.face.set_pixel_sizes(0, size).unwrap();
         self.face.load_char('┼' as usize, ft::face::DEFAULT).unwrap();
         let glyph = self.face.glyph().get_glyph().unwrap();
@@ -64,7 +68,7 @@ impl<F: Facade> GlyphCache<F> {
         match self.metrics.entry(size) {
             Entry::Occupied(v) => *v.get(),
             Entry::Vacant(v) => {
-                *v.insert(Metrics {
+                *v.insert(GlyphMetrics {
                     width: (glyph.advance_x() >> 16) as Px,
                     //width: (bb.xMax - bb.xMin - 2) as Px,
                     height: (bb.yMax - bb.yMin - 2) as Px,
@@ -73,12 +77,8 @@ impl<F: Facade> GlyphCache<F> {
             }
         }
     }
-}
 
-impl<F: Facade> CharacterCache for GlyphCache<F> {
-    type Texture = DrawTexture;
-
-    fn character(&mut self, size: FontSize, ch: char) -> &Character<Self::Texture> {
+    pub fn glyph(&mut self, size: FontSize, ch: char) -> &Glyph {
         match self.data.entry((size, ch)) {
             //returning `into_mut()' to get reference with 'a lifetime
             Entry::Occupied(v) => v.into_mut(),
@@ -88,15 +88,12 @@ impl<F: Facade> CharacterCache for GlyphCache<F> {
                 let glyph = self.face.glyph().get_glyph().unwrap();
                 let bitmap_glyph = glyph.to_bitmap(RenderMode::Normal, None).unwrap();
                 let bitmap = bitmap_glyph.bitmap();
-                v.insert(Character {
-                    offset: [
-                        bitmap_glyph.left() as f64,
-                        bitmap_glyph.top() as f64
-                    ],
-                    size: [
-                        (glyph.advance_x() >> 16) as f64,
-                        (glyph.advance_y() >> 16) as f64
-                    ],
+
+                let x = bitmap_glyph.left() as Px;
+                let y = bitmap_glyph.top() as Px;
+                v.insert(Glyph {
+                    offset: [x, -y],
+                    advance: (glyph.advance_x() >> 16) as Px,
                     texture: DrawTexture::new(if bitmap.width() != 0 {
                         Texture2d::new(&*self.facade,
                             ImageBuffer::<Rgba<u8>, _>::from_raw(

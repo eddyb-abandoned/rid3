@@ -89,9 +89,9 @@ impl<F> Draw for Button<F> {
     fn draw(&self, cx: &mut DrawCx) {
         let bb = self.bb();
         if self.over.get() {
-            cx.rect(bb, ColorScheme.focus());
+            cx.fill(bb, ColorScheme.focus());
             if !self.down.get() {
-                cx.rect(BB {
+                cx.fill(BB {
                     x1: bb.x1 + 1.0, y1: bb.y1 + 1.0,
                     x2: bb.x2 - 1.0, y2: bb.y2 - 1.0
                 }, ColorScheme.background());

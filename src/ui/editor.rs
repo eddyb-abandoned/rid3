@@ -10,14 +10,12 @@ use std::path::{Path, PathBuf};
 use std::usize;
 
 use cfg::ColorScheme;
-use gfx::MouseCursor;
-use glyph::Metrics;
-use graphics::character::CharacterCache;
+use glyph::GlyphMetrics;
 
 use ui::{BB, Dir, Px};
 use ui::layout::{RectBB, RectBounded, Layout};
 use ui::color::Scheme;
-use ui::draw::{Draw, DrawCx};
+use ui::draw::{Draw, DrawCx, MouseCursor};
 use ui::event::*;
 use ui::tab;
 use ui::text;
@@ -29,7 +27,7 @@ pub struct Editor {
     bb: RectBB,
     font: text::Mono,
     font_bold: text::MonoBold,
-    font_metrics: Cell<Metrics>,
+    font_metrics: Cell<GlyphMetrics>,
     over: Cell<bool>,
     down: Cell<bool>,
 
@@ -157,7 +155,7 @@ impl Editor {
             bb: RectBB::default(),
             font: text::Mono,
             font_bold: text::MonoBold,
-            font_metrics: Cell::new(Metrics::default()),
+            font_metrics: Cell::new(GlyphMetrics::default()),
             over: Cell::new(false),
             down: Cell::new(false),
             scroll_start: Cell::new(0),
@@ -607,12 +605,12 @@ impl Draw for Editor {
     fn draw(&self, cx: &mut DrawCx) {
         let mut metrics = self.font_metrics.get();
         if metrics.width == 0.0 {
-            metrics = cx.fonts.metrics(self.font);
+            metrics = cx.fonts().metrics(self.font);
             self.font_metrics.set(metrics);
         }
 
         if self.over.get() {
-            cx.cursor = MouseCursor::Text;
+            cx.cursor(MouseCursor::Text);
         }
 
         let bb = self.bb();
@@ -625,14 +623,14 @@ impl Draw for Editor {
             &lines[start..]
         };
 
-        cx.rect(bb, ColorScheme.back_view());
+        cx.fill(bb, ColorScheme.back_view());
 
         let s1 = self.selection_start.get();
         let s2 = self.caret.get();
         let k = s2;
         if start <= s2.row && s2.row <= end {
             let y = bb.y1 + ((s2.row - start) as Px * metrics.height);
-            cx.rect(BB {
+            cx.fill(BB {
                 x1: bb.x1, y1: y,
                 x2: bb.x2, y2: y + metrics.height
             }, ColorScheme.back_view_alt());
@@ -654,7 +652,7 @@ impl Draw for Editor {
                     let mut color = if error { ColorScheme.negative() } else { ColorScheme.neutral() };
                     color[3] = 0.3;
                     let y = bb.y1 + ((i - start) as Px * metrics.height);
-                    cx.rect(BB {
+                    cx.fill(BB {
                         x1: bb.x1, y1: y,
                         x2: bb.x2, y2: y + metrics.height
                     }, color);
@@ -672,7 +670,7 @@ impl Draw for Editor {
             } else {
                 bb.x2
             };
-            cx.rect(BB {
+            cx.fill(BB {
                 x1: x1, y1: y,
                 x2: x2, y2: y + metrics.height
             }, ColorScheme.focus());
@@ -681,7 +679,7 @@ impl Draw for Editor {
         for row in (s1.row + 1)..s2.row {
             if start <= row && row <= end {
                 let y = bb.y1 + ((row - start) as Px * metrics.height);
-                cx.rect(BB {
+                cx.fill(BB {
                     x1: bb.x1, y1: y,
                     x2: bb.x2, y2: y + metrics.height
                 }, ColorScheme.focus());
@@ -690,7 +688,7 @@ impl Draw for Editor {
         // Last line (if selection has at least 2 lines).
         if start <= s2.row && s2.row <= end && s1.row < s2.row {
             let y = bb.y1 + ((s2.row - start) as Px * metrics.height);
-            cx.rect(BB {
+            cx.fill(BB {
                 x1: bb.x1, y1: y,
                 x2: bb.x1 + (s2.col as Px) * metrics.width, y2: y + metrics.height
             }, ColorScheme.focus());
@@ -726,7 +724,7 @@ impl Draw for Editor {
             let x = bb.x1 + (k.col as Px) * metrics.width;
             let w = 2.0;
             if bb.x1 <= x && x + w <= bb.x2 {
-                cx.rect(BB {
+                cx.fill(BB {
                     x1: x, y1: y,
                     x2: x + w, y2: y + metrics.height
                 }, ColorScheme.normal());
@@ -750,7 +748,7 @@ impl Draw for Editor {
             };
 
             // Draw border.
-            cx.rect(BB {
+            cx.fill(BB {
                 x1: bb.x1 - 2.0, x2: bb.x2 + 2.0,
                 y1: bb.y1 - 4.0, y2: bb.y2 + 4.0
             }, ColorScheme.active());
@@ -767,7 +765,7 @@ impl Draw for Editor {
                 if i == overlay.len() - 1 {
                     back_bb.y2 += 2.0;
                 }
-                cx.rect(back_bb, if i % 2 == 0 { ColorScheme.back_view_alt() } else { ColorScheme.back_view() });
+                cx.fill(back_bb, if i % 2 == 0 { ColorScheme.back_view_alt() } else { ColorScheme.back_view() });
 
                 let mut draw_k = Caret {
                     row: 0,
@@ -791,7 +789,7 @@ impl Draw for Editor {
             // Draw separator.
             if separator > 0 {
                 let separator = bb.x1 + (separator as Px + 1.0) * metrics.width;
-                cx.rect(BB {
+                cx.fill(BB {
                     x1: separator - 1.0, x2: separator + 1.0,
                     y1: bb.y1, y2: bb.y2
                 }, ColorScheme.active());

@@ -666,7 +666,13 @@ pub fn compute<R: Layout>(root: &R, fonts: &mut text::FontFaces, w: Px, h: Px) {
 
 pub struct CollectCx<'a> {
     system: System<'a, Px>,
-    pub fonts: &'a mut text::FontFaces
+    fonts: &'a mut text::FontFaces
+}
+
+impl<'a> CollectCx<'a> {
+    pub fn fonts(&mut self) -> &mut text::FontFaces {
+        self.fonts
+    }
 }
 
 impl<'a> Deref for CollectCx<'a> {

@@ -12,13 +12,13 @@ use std::rc::Rc;
 use piston::event::*;
 use piston::input::{Button, MouseButton};
 use piston::window::{WindowSettings, Size};
-use r3::back_end::Glium2d;
 use r3::window::GliumWindow;
 use glutin_window::{GlutinWindow, OpenGL};
 
 #[macro_use]
 extern crate r3;
-pub use r3::{cfg, gfx, ui};
+pub use r3::{cfg, ui};
+use r3::glyph::GlyphCache;
 
 use ui::Px;
 use ui::color::Scheme;
@@ -29,9 +29,8 @@ use ui::text::FontFaces;
 fn main() {
     r3::ide::rustc::init_env();
 
-    let opengl = OpenGL::_2_1;
     let ref window = Rc::new(RefCell::new(GlutinWindow::new(
-        opengl,
+        OpenGL::_2_1,
         WindowSettings::new(
             "rid3".to_string(),
             Size { width: 800, height: 600 }
@@ -39,13 +38,11 @@ fn main() {
     )));
     let glium_window = Rc::new(GliumWindow::new(window).unwrap());
 
-    let mut g2d = Glium2d::new(opengl, &*glium_window);
-
-    let mut fonts = FontFaces {
-        regular: gfx::GlyphCache::from_data(include_bytes!("../../assets/NotoSans/NotoSans-Regular.ttf"), glium_window.clone()).unwrap(),
-        mono: gfx::GlyphCache::from_data(include_bytes!("../../assets/Hasklig/Hasklig-Regular.otf"), glium_window.clone()).unwrap(),
-        mono_bold: gfx::GlyphCache::from_data(include_bytes!("../../assets/Hasklig/Hasklig-Bold.otf"), glium_window.clone()).unwrap()
-    };
+    let system = &mut ui::draw::System::new(&glium_window, FontFaces {
+        regular: GlyphCache::from_data(include_bytes!("../../assets/NotoSans/NotoSans-Regular.ttf"), glium_window.clone()).unwrap(),
+        mono: GlyphCache::from_data(include_bytes!("../../assets/Hasklig/Hasklig-Regular.otf"), glium_window.clone()).unwrap(),
+        mono_bold: GlyphCache::from_data(include_bytes!("../../assets/Hasklig/Hasklig-Bold.otf"), glium_window.clone()).unwrap()
+    });
 
     let open_queue = RefCell::new(std::env::args().skip(1).map(PathBuf::from).collect::<Vec<_>>());
     let save_current = Cell::new(false);
@@ -66,30 +63,29 @@ fn main() {
     let mut root = flow![down: tool_bar, ui::tab::Set::<ui::editor::Editor>::new()];
 
     let (mut x, mut y) = (0.0, 0.0);
-    let mut cursor = gfx::MouseCursor::Default;
+    let mut cursor = ui::draw::MouseCursor::Default;
     let mut dirty = true;
 
     for e in window.events() {
-        if let (true, Some(args)) = (dirty, e.render_args()) {
-            let viewport = args.viewport();
-            let sz = viewport.draw_size;
+        if let (true, Some(_)) = (dirty, e.render_args()) {
+            let mut draw_cx = DrawCx::new(system, glium_window.draw());
+            let [w, h] = draw_cx.dimensions();
 
-            ui::layout::compute(&root, &mut fonts, sz[0] as Px, sz[1] as Px);
+            // TODO maybe integrate this with draw_cx?
+            ui::layout::compute(&root, draw_cx.fonts(), w, h);
 
-            let mut surface = glium_window.draw();
-            {
-                let mut draw_cx = DrawCx::new(&mut g2d, &mut surface, viewport, &mut fonts);
-                draw_cx.clear(cfg::ColorScheme.background());
-                draw_cx.draw(&root);
+            draw_cx.clear(cfg::ColorScheme.background());
+            draw_cx.draw(&root);
 
-                if (draw_cx.cursor as usize) != (cursor as usize) {
-                    if !cfg!(windows) {
-                        window.borrow_mut().window.set_cursor(draw_cx.cursor);
-                    }
-                    cursor = draw_cx.cursor;
+            let new_cursor = draw_cx.get_cursor();
+            draw_cx.finish();
+
+            if (new_cursor as usize) != (cursor as usize) {
+                if !cfg!(windows) {
+                    window.borrow_mut().window.set_cursor(new_cursor);
                 }
+                cursor = new_cursor;
             }
-            surface.finish();
 
             dirty = false;
         }
