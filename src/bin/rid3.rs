@@ -1,7 +1,5 @@
 #![feature(collections_drain, slice_patterns)]
 
-extern crate graphics;
-extern crate glium;
 extern crate piston;
 extern crate glutin_window;
 
