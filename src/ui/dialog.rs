@@ -3,15 +3,17 @@ use std::str;
 
 #[cfg(not(windows))]
 pub fn open_file() -> Option<PathBuf> {
-    use std::env;
     use std::process::Command;
 
-    let out = Command::new("kdialog").arg("--getopenurl").arg(env::current_dir().unwrap())
-                                     .arg("*").output();
+    let out = if cfg!(target_os = "macos") {
+        Command::new("osascript").args(&["-e", "POSIX path of (choose file)"]).output()
+    } else {
+        Command::new("kdialog").args(&["--getopenfilename", "."]).output()
+    };
     let out = match out {
         Ok(out) => out,
         Err(e) => {
-            println!("couldn't open dialog: {:?}", e);
+            println!("couldn't open dialog: {}", e);
             return None;
         }
     };
@@ -20,8 +22,7 @@ pub fn open_file() -> Option<PathBuf> {
         return None;
     }
 
-    let file = str::from_utf8(&out.stdout).unwrap().trim();
-    Some(PathBuf::from(regex!("^file://").replace(file, "")))
+    Some(PathBuf::from(str::from_utf8(&out.stdout).unwrap().trim()))
 }
 
 #[cfg(windows)]
