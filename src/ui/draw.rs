@@ -30,12 +30,8 @@ struct TexturedVertex {
 implement_vertex!(TexturedVertex, pos, uv);
 
 pub struct System {
-    next_plain_buffer: u32,
-    plain_buffer1: VertexBuffer<PlainVertex>,
-    plain_buffer2: VertexBuffer<PlainVertex>,
-    next_textured_buffer: u32,
-    textured_buffer1: VertexBuffer<TexturedVertex>,
-    textured_buffer2: VertexBuffer<TexturedVertex>,
+    plain_buffer: VertexBuffer<PlainVertex>,
+    textured_buffer: VertexBuffer<TexturedVertex>,
     shader_texture: Program,
     shader_color: Program,
     fonts: FontFaces
@@ -52,12 +48,8 @@ impl System {
                                 .take(BACK_END_MAX_VERTEX_COUNT).collect::<Vec<_>>();
 
         System {
-            next_plain_buffer: 0,
-            plain_buffer1: VertexBuffer::dynamic(window, plain_data.clone()),
-            plain_buffer2: VertexBuffer::dynamic(window, plain_data),
-            next_textured_buffer: 0,
-            textured_buffer1: VertexBuffer::dynamic(window, textured_data.clone()),
-            textured_buffer2: VertexBuffer::dynamic(window, textured_data),
+            plain_buffer: VertexBuffer::dynamic(window, plain_data),
+            textured_buffer: VertexBuffer::dynamic(window, textured_data),
             shader_texture: Program::from_source(window, "
                 #version 120
                 uniform sampler2D s_texture;
@@ -191,17 +183,7 @@ impl<'a> DrawCx<'a> {
     fn tri_list<F>(&mut self, color: Color, mut f: F)
         where F: FnMut(&mut FnMut(&[Px])) {
         f(&mut |vertices: &[Px]| {
-            let slice = match self.system.next_plain_buffer {
-                0 => {
-                    self.system.next_plain_buffer = 1;
-                    self.system.plain_buffer1.slice(0..vertices.len() / 2).unwrap()
-                },
-                1 => {
-                    self.system.next_plain_buffer = 0;
-                    self.system.plain_buffer2.slice(0..vertices.len() / 2).unwrap()
-                },
-                _ => unreachable!()
-            };
+            let slice = self.system.plain_buffer.slice(0..vertices.len() / 2).unwrap();
 
             slice.write({
                 (0..vertices.len() / 2)
@@ -236,17 +218,7 @@ impl<'a> DrawCx<'a> {
         f(&mut |vertices: &[Px], texture_coords: &[Px]| {
             let len = min(vertices.len(), texture_coords.len()) / 2;
 
-            let slice = match self.system.next_textured_buffer {
-                0 => {
-                    self.system.next_textured_buffer = 1;
-                    self.system.textured_buffer1.slice(0..len).unwrap()
-                },
-                1 => {
-                    self.system.next_textured_buffer = 0;
-                    self.system.textured_buffer2.slice(0..len).unwrap()
-                },
-                _ => unreachable!()
-            };
+            let slice = self.system.textured_buffer.slice(0..len).unwrap();
 
             slice.write({
                 (0..len)
