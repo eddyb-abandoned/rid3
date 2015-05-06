@@ -39,5 +39,8 @@ git = "https://github.com/PistonDevelopers/freetype-rs"
 [dependencies.pistoncore-window]
 git = "https://github.com/PistonDevelopers/window"
 
+[dependencies.fps_counter]
+git = "https://github.com/PistonDevelopers/fps_counter"
+
 [[bin]]
 name = "rid3"

@@ -2,6 +2,7 @@
 
 extern crate piston;
 extern crate glutin_window;
+extern crate fps_counter;
 
 use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
@@ -22,6 +23,7 @@ use ui::Px;
 use ui::color::Scheme;
 use ui::draw::DrawCx;
 use ui::event::Dispatch;
+use ui::tab::Tab;
 use ui::text::FontFaces;
 
 fn main() {
@@ -64,6 +66,7 @@ fn main() {
     let mut cursor = ui::draw::MouseCursor::Default;
     let mut dirty = true;
 
+    let mut fps_counter = fps_counter::FPSCounter::new();
     for e in window.events().swap_buffers(false) {
         if let (true, Some(_)) = (dirty, e.render_args()) {
             let mut draw_cx = DrawCx::new(system, glium_window.draw());
@@ -84,6 +87,11 @@ fn main() {
                 }
                 cursor = new_cursor;
             }
+
+            let fps = fps_counter.tick();
+            let tab_title = root.kids.1.current().map(|tab| tab.title());
+            let title = format!("rid3: {} @ {}FPS", tab_title.as_ref().map_or("", |s| &s[..]), fps);
+            window.borrow_mut().window.set_title(&title);
 
             dirty = false;
         }
