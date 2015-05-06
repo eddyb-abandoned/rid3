@@ -66,7 +66,7 @@ fn main() {
     let mut cursor = ui::draw::MouseCursor::Default;
     let mut dirty = true;
 
-    for e in window.events() {
+    for e in window.events().swap_buffers(false) {
         if let (true, Some(_)) = (dirty, e.render_args()) {
             let mut draw_cx = DrawCx::new(system, glium_window.draw());
             let [w, h] = draw_cx.dimensions();
