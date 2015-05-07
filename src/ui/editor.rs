@@ -688,10 +688,7 @@ impl Draw for Editor {
         // Last line (if selection has at least 2 lines).
         if start <= s2.row && s2.row <= end && s1.row < s2.row {
             let y = bb.y1 + ((s2.row - start) as Px * metrics.height);
-            cx.fill(BB {
-                x1: bb.x1, y1: y,
-                x2: bb.x1 + (s2.col as Px) * metrics.width, y2: y + metrics.height
-            }, ColorScheme.focus());
+            cx.fill(BB::rect(bb.x1, y, (s2.col as Px) * metrics.width, metrics.height), ColorScheme.focus());
         }
 
         // The actual text in each line.
@@ -724,10 +721,7 @@ impl Draw for Editor {
             let x = bb.x1 + (k.col as Px) * metrics.width;
             let w = 2.0;
             if bb.x1 <= x && x + w <= bb.x2 {
-                cx.fill(BB {
-                    x1: x, y1: y,
-                    x2: x + w, y2: y + metrics.height
-                }, ColorScheme.normal());
+                cx.fill(BB::rect(x, y, w, metrics.height), ColorScheme.normal());
             }
         }
 

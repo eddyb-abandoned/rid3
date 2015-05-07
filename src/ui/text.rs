@@ -83,6 +83,6 @@ impl<F> RectBounded for Label<F> where F: FontFace {
 impl<F> Draw for Label<F> where F: FontFace {
     fn draw(&self, cx: &mut DrawCx) {
         let bb = self.bb();
-        cx.text(self.font, [bb.x1, bb.y1], self.color.get(), self.text);
+        cx.text(self.font, bb.top_left(), self.color.get(), self.text);
     }
 }

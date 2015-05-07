@@ -3,7 +3,7 @@ use std::default::Default;
 
 use cfg::ColorScheme;
 
-use ui::{BB, dir};
+use ui::dir;
 use ui::layout::{RectBB, RectBounded, ConstrainCx, Layout};
 use ui::color::Scheme;
 use ui::draw::{Draw, DrawCx};
@@ -91,10 +91,7 @@ impl<F> Draw for Button<F> {
         if self.over.get() {
             cx.fill(bb, ColorScheme.focus());
             if !self.down.get() {
-                cx.fill(BB {
-                    x1: bb.x1 + 1.0, y1: bb.y1 + 1.0,
-                    x2: bb.x2 - 1.0, y2: bb.y2 - 1.0
-                }, ColorScheme.background());
+                cx.fill(bb.shrink(1.0), ColorScheme.background());
             }
         }
 

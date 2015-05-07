@@ -92,10 +92,8 @@ impl<T> Draw for Set<T> where T: Layout + Tab + Draw {
             let metrics = cx.fonts().metrics(text::Regular);
 
             // Background for all tabs.
-            cx.fill(BB {
-                x1: bb.x1, x2: bb.x1 + (self.tabs.len() as Px) * TAB_WIDTH,
-                y1: bb.y1, y2: bb.y1 + metrics.height * 2.0
-            }, ColorScheme.inactive());
+            cx.fill(BB::rect(bb.x1, bb.y1, (self.tabs.len() as Px) * TAB_WIDTH, metrics.height * 2.0),
+                    ColorScheme.inactive());
 
             for (i, tab) in self.tabs.iter().enumerate() {
                 let text = tab.title();
@@ -103,18 +101,13 @@ impl<T> Draw for Set<T> where T: Layout + Tab + Draw {
 
                 // Background for each tab.
                 let x = bb.x1 + (i as Px) * TAB_WIDTH;
-                cx.fill(BB {
-                    x1: x + 1.0, x2: x + TAB_WIDTH - 1.0,
-                    y1: bb.y1, y2: bb.y1 + metrics.height * 2.0
-                }, ColorScheme.background());
+                cx.fill(BB::rect(x + 1.0, bb.y1, TAB_WIDTH - 2.0, metrics.height * 2.0),
+                        ColorScheme.background());
 
                 // Focus highlight.
                 if i == current {
                     let y = bb.y1 + metrics.height * 2.0 - 5.0;
-                    cx.fill(BB {
-                        x1: x + 3.0, x2: x + TAB_WIDTH - 3.0,
-                        y1: y, y2: y + 2.0
-                    }, ColorScheme.focus());
+                    cx.fill(BB::rect(x + 3.0, y, TAB_WIDTH - 3.0, 2.0), ColorScheme.focus());
                 }
 
                 cx.text(text::Regular, [(x + (TAB_WIDTH - w) / 2.0).round(),

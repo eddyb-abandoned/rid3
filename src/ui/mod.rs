@@ -1,3 +1,5 @@
+use std::ops::{Add, Sub, Neg};
+
 #[macro_export]
 macro_rules! tlist {
     [$x:expr] => ($x);
@@ -59,6 +61,13 @@ pub struct BB<T> {
 }
 
 impl<T> BB<T> {
+    pub fn rect(x: T, y: T, w: T, h: T) -> BB<T> where T: Copy + Add<Output=T> {
+        BB {
+            x1: x, y1: y,
+            x2: x + w, y2: y + h
+        }
+    }
+
     pub fn as_ref<'a>(&'a self) -> BB<&'a T> {
         BB {
             x1: &self.x1, y1: &self.y1,
@@ -80,7 +89,30 @@ impl<T> BB<T> {
         }
     }
 
+    pub fn zip<U>(self, other: BB<U>) -> BB<(T, U)> {
+        BB {
+            x1: (self.x1, other.x1), y1: (self.y1, other.y1),
+            x2: (self.x2, other.x2), y2: (self.y2, other.y2)
+        }
+    }
+
     pub fn contains(&self, [x, y]: [T; 2]) -> bool where T: PartialOrd {
         self.x1 <= x && x <= self.x2 && self.y1 <= y && y <= self.y2
     }
+
+    pub fn expand(&self, x: T) -> BB<T> where T: Copy + Add<Output=T> + Sub<Output=T> {
+        BB {
+            x1: self.x1 - x, y1: self.y1 - x,
+            x2: self.x2 + x, y2: self.y2 + x
+        }
+    }
+
+    pub fn shrink(&self, x: T) -> BB<T> where T: Copy+ Neg<Output=T> + Add<Output=T> + Sub<Output=T>  {
+        self.expand(-x)
+    }
+
+    pub fn top_left(self) -> [T; 2] { [self.x1, self.y1] }
+    pub fn top_right(self) -> [T; 2] { [self.x2, self.y1] }
+    pub fn bottom_left(self) -> [T; 2] { [self.x1, self.y2] }
+    pub fn bottom_right(self) -> [T; 2] { [self.x2, self.y2] }
 }
