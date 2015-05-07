@@ -36,9 +36,10 @@ macro_rules! dir_ty {
 }
 
 pub mod color;
+pub mod layout;
+pub mod render;
 pub mod draw;
 pub mod event;
-pub mod layout;
 pub mod text;
 
 #[macro_use]

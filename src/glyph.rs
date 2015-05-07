@@ -12,7 +12,6 @@ use image::{Rgba, ImageBuffer};
 use window::GliumWindow as Window;
 
 use ui::Px;
-use ui::draw::DrawTexture;
 
 pub type FontSize = u32;
 
@@ -20,7 +19,7 @@ pub type FontSize = u32;
 pub struct Glyph {
     pub offset: [Px; 2],
     pub advance: Px,
-    pub texture: DrawTexture
+    pub texture: Rc<Texture2d>
 }
 
 #[derive(Copy, Clone, Default)]
@@ -94,7 +93,7 @@ impl GlyphCache {
                 v.insert(Glyph {
                     offset: [x, -y],
                     advance: (glyph.advance_x() >> 16) as Px,
-                    texture: DrawTexture::new(if bitmap.width() != 0 {
+                    texture: Rc::new(if bitmap.width() != 0 {
                         Texture2d::new(&*self.facade,
                             ImageBuffer::<Rgba<u8>, _>::from_raw(
                                 bitmap.width() as u32, bitmap.rows() as u32,

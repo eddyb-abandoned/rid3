@@ -38,7 +38,7 @@ fn main() {
     )));
     let glium_window = Rc::new(GliumWindow::new(window).unwrap());
 
-    let system = &mut ui::draw::System::new(&glium_window, FontFaces {
+    let renderer = &mut ui::render::Renderer::new(&glium_window, FontFaces {
         regular: GlyphCache::from_data(include_bytes!("../../assets/NotoSans/NotoSans-Regular.ttf"), glium_window.clone()).unwrap(),
         mono: GlyphCache::from_data(include_bytes!("../../assets/Hasklig/Hasklig-Regular.otf"), glium_window.clone()).unwrap(),
         mono_bold: GlyphCache::from_data(include_bytes!("../../assets/Hasklig/Hasklig-Bold.otf"), glium_window.clone()).unwrap()
@@ -69,7 +69,7 @@ fn main() {
     let mut fps_counter = fps_counter::FPSCounter::new();
     for e in window.events().swap_buffers(false) {
         if let (true, Some(_)) = (dirty, e.render_args()) {
-            let mut draw_cx = DrawCx::new(system, glium_window.draw());
+            let mut draw_cx = DrawCx::new(renderer, glium_window.draw());
             let [w, h] = draw_cx.dimensions();
 
             // TODO maybe integrate this with draw_cx?

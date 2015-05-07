@@ -8,7 +8,6 @@ dependencies = [
  "glutin 0.0.31 (git+https://github.com/tomaka/glutin)",
  "image 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "piston 0.1.1 (git+https://github.com/PistonDevelopers/piston)",
- "piston2d-graphics 0.0.45 (git+https://github.com/PistonDevelopers/graphics)",
  "pistoncore-glutin_window 0.0.8 (git+https://github.com/PistonDevelopers/glutin_window)",
  "pistoncore-window 0.1.2 (git+https://github.com/PistonDevelopers/window)",
  "regex 0.1.30 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -38,14 +37,6 @@ version = "0.0.5"
 source = "git+https://github.com/tomaka/clock_ticks#462848731d99ed2f800e2e5a19e2d8ca3b11c90c"
 dependencies = [
  "libc 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "draw_state"
-version = "0.0.7"
-source = "git+https://github.com/gfx-rs/draw_state#44a0aed11abccbf970fc7efbe84b6482f0548248"
-dependencies = [
- "bitflags 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -239,11 +230,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "interpolation"
-version = "0.0.5"
-source = "git+https://github.com/PistonDevelopers/interpolation#feccc5ae5d2f52df42a3496fd180a0dc2fda50b7"
-
-[[package]]
 name = "kernel32-sys"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -339,29 +325,11 @@ version = "0.0.1"
 source = "git+https://github.com/pistondevelopers/float#2c73a3e34c384c79e95b35c069d5a69dda3a0cc4"
 
 [[package]]
-name = "piston-texture"
-version = "0.0.1"
-source = "git+https://github.com/PistonDevelopers/texture#3cc4cddc3f8c51c36ea11dd2f63d70aa887f53fb"
-
-[[package]]
 name = "piston-viewport"
 version = "0.0.2"
 source = "git+https://github.com/pistondevelopers/viewport#3819edeb0982d2552669e03ad9c0317e75340510"
 dependencies = [
  "piston-float 0.0.1 (git+https://github.com/pistondevelopers/float)",
-]
-
-[[package]]
-name = "piston2d-graphics"
-version = "0.0.45"
-source = "git+https://github.com/PistonDevelopers/graphics#5b09b5762431513e0f7b8cb43eb17be66cbd9f4c"
-dependencies = [
- "draw_state 0.0.7 (git+https://github.com/gfx-rs/draw_state)",
- "interpolation 0.0.5 (git+https://github.com/PistonDevelopers/interpolation)",
- "piston-texture 0.0.1 (git+https://github.com/PistonDevelopers/texture)",
- "piston-viewport 0.0.2 (git+https://github.com/pistondevelopers/viewport)",
- "read_color 0.0.2 (git+https://github.com/PistonDevelopers/read_color)",
- "vecmath 0.0.22 (git+https://github.com/PistonDevelopers/vecmath)",
 ]
 
 [[package]]
@@ -429,11 +397,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "read_color"
-version = "0.0.2"
-source = "git+https://github.com/PistonDevelopers/read_color#568723fb7d9a69833e1d5a5ec79ded8ce9562920"
-
-[[package]]
 name = "regex"
 version = "0.1.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -471,14 +434,6 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "winapi 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "vecmath"
-version = "0.0.22"
-source = "git+https://github.com/PistonDevelopers/vecmath#d6bb5cf609b51cae8f296945e179bd42a74c9a51"
-dependencies = [
- "piston-float 0.0.1 (git+https://github.com/pistondevelopers/float)",
 ]
 
 [[package]]
