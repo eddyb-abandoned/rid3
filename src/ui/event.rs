@@ -6,13 +6,13 @@ use ui::Px;
 
 pub trait Dispatch<E> {
     /// Process an event and return true if redoing layout or rendering is needed.
-    fn dispatch(&self, _ev: &E) -> bool { false }
+    fn dispatch(&mut self, _ev: &E) -> bool { false }
 }
 
 impl<A, B, E> Dispatch<E> for (A, B) where
            A: Dispatch<E>,
            B: Dispatch<E> {
-    fn dispatch(&self, ev: &E) -> bool {
+    fn dispatch(&mut self, ev: &E) -> bool {
         self.0.dispatch(ev) | self.1.dispatch(ev)
     }
 }

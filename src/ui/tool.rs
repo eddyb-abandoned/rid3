@@ -1,4 +1,3 @@
-use std::cell::Cell;
 use std::default::Default;
 
 use cfg::ColorScheme;
@@ -43,7 +42,7 @@ impl<B> Draw for Bar<B> where B: Draw {
 }
 
 impl<E, B> Dispatch<E> for Bar<B> where B: Dispatch<E> {
-    fn dispatch(&self, ev: &E) -> bool {
+    fn dispatch(&mut self, ev: &E) -> bool {
         self.buttons.dispatch(ev)
     }
 }
@@ -55,8 +54,8 @@ macro_rules! tool_bar {
 
 pub struct Button<F> {
     bb: RectBB,
-    over: Cell<bool>,
-    down: Cell<bool>,
+    over: bool,
+    down: bool,
     callback: F,
     label: Label
 }
@@ -65,8 +64,8 @@ impl<F> Button<F> {
     pub fn new(name: &'static str, callback: F) -> Button<F> {
         Button {
             bb: RectBB::default(),
-            over: Cell::new(false),
-            down: Cell::new(false),
+            over: false,
+            down: false,
             callback: callback,
             label: Label::new(ColorScheme.normal(), name)
         }
@@ -88,9 +87,9 @@ impl<F> RectBounded for Button<F> {
 impl<F> Draw for Button<F> {
     fn draw(&self, cx: &mut DrawCx) {
         let bb = self.bb();
-        if self.over.get() {
+        if self.over {
             cx.fill(bb, ColorScheme.focus());
-            if !self.down.get() {
+            if !self.down {
                 cx.fill(bb.shrink(1.0), ColorScheme.background());
             }
         }
@@ -100,18 +99,18 @@ impl<F> Draw for Button<F> {
 }
 
 impl<F> Dispatch<MouseDown> for Button<F> {
-    fn dispatch(&self, ev: &MouseDown) -> bool {
+    fn dispatch(&mut self, ev: &MouseDown) -> bool {
         if !self.bb().contains([ev.x, ev.y]) {
             return false;
         }
-        if !self.down.get() { self.down.set(true); true } else { false }
+        if !self.down { self.down = true; true } else { false }
     }
 }
 
 impl<F> Dispatch<MouseUp> for Button<F> where F: Fn() {
-    fn dispatch(&self, ev: &MouseUp) -> bool {
-        if self.down.get() {
-            self.down.set(false);
+    fn dispatch(&mut self, ev: &MouseUp) -> bool {
+        if self.down {
+            self.down = false;
             if self.bb().contains([ev.x, ev.y]) {
                 (self.callback)();
             }
@@ -123,9 +122,9 @@ impl<F> Dispatch<MouseUp> for Button<F> where F: Fn() {
 }
 
 impl<F> Dispatch<MouseMove> for Button<F> {
-    fn dispatch(&self, ev: &MouseMove) -> bool {
+    fn dispatch(&mut self, ev: &MouseMove) -> bool {
         let over = self.bb().contains([ev.x, ev.y]);
-        if over != self.over.get() { self.over.set(over); true } else { false }
+        if over != self.over { self.over = over; true } else { false }
     }
 }
 

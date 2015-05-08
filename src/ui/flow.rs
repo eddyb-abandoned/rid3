@@ -96,7 +96,7 @@ impl<D, K> Draw for Flow<D, K> where K: Draw {
 }
 
 impl<D, K, E> Dispatch<E> for Flow<D, K> where K: Dispatch<E> {
-    fn dispatch(&self, ev: &E) -> bool {
+    fn dispatch(&mut self, ev: &E) -> bool {
         self.kids.dispatch(ev)
     }
 }

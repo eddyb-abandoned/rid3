@@ -134,7 +134,7 @@ fn main() {
         e.text(|s| dirty |= root.dispatch(&ui::event::TextInput(s)));
 
         if save_current.get() {
-            root.kids.1.current().map(|e| e.save());
+            root.kids.1.current_mut().map(|e| e.save());
             save_current.set(false);
             dirty = true;
         }

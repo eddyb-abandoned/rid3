@@ -1,4 +1,3 @@
-use std::cell::Cell;
 use std::default::Default;
 
 use cfg::ColorScheme;
@@ -43,7 +42,7 @@ impl<B> Draw for Bar<B> where B: Draw {
 }
 
 impl<E, B> Dispatch<E> for Bar<B> where B: Dispatch<E> {
-    fn dispatch(&self, ev: &E) -> bool {
+    fn dispatch(&mut self, ev: &E) -> bool {
         self.buttons.dispatch(ev)
     }
 }
@@ -55,8 +54,8 @@ macro_rules! menu_bar {
 
 pub struct Button {
     bb: RectBB,
-    pub over: Cell<bool>,
-    pub down: Cell<bool>,
+    pub over: bool,
+    pub down: bool,
     pub label: Label
 }
 
@@ -64,8 +63,8 @@ impl Button {
     pub fn new(name: &'static str) -> Button {
         Button {
             bb: RectBB::default(),
-            over: Cell::new(false),
-            down: Cell::new(false),
+            over: false,
+            down: false,
             label: Label::new(ColorScheme.normal(), name)
         }
     }
@@ -86,7 +85,7 @@ impl RectBounded for Button {
 
 impl Draw for Button {
     fn draw(&self, cx: &mut DrawCx) {
-        if self.over.get() && self.down.get() {
+        if self.over && self.down {
             cx.fill(self.bb(), ColorScheme.focus());
         }
 
@@ -95,21 +94,21 @@ impl Draw for Button {
 }
 
 impl Dispatch<MouseDown> for Button {
-    fn dispatch(&self, _: &MouseDown) -> bool {
-        if !self.down.get() { self.down.set(true); true } else { false }
+    fn dispatch(&mut self, _: &MouseDown) -> bool {
+        if !self.down { self.down = true; true } else { false }
     }
 }
 
 impl Dispatch<MouseUp> for Button {
-    fn dispatch(&self, _: &MouseUp) -> bool {
-        if self.down.get() { self.down.set(false); true } else { false }
+    fn dispatch(&mut self, _: &MouseUp) -> bool {
+        if self.down { self.down = false; true } else { false }
     }
 }
 
 impl Dispatch<MouseMove> for Button {
-    fn dispatch(&self, ev: &MouseMove) -> bool {
+    fn dispatch(&mut self, ev: &MouseMove) -> bool {
         let over = self.bb().contains([ev.x, ev.y]);
-        if over != self.over.get() { self.over.set(over); true } else { false }
+        if over != self.over { self.over = over; true } else { false }
     }
 }
 

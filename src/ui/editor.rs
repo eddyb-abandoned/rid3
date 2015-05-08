@@ -1,5 +1,5 @@
 use std::borrow::ToOwned;
-use std::cell::{Cell, RefCell};
+use std::cell::Cell;
 use std::cmp::{min, max, Ordering};
 use std::default::Default;
 use std::fs;
@@ -29,35 +29,35 @@ pub struct Editor {
     font: text::Mono,
     font_bold: text::MonoBold,
     font_metrics: Cell<GlyphMetrics>,
-    over: Cell<bool>,
-    down: Cell<bool>,
+    over: bool,
+    down: bool,
 
     // Caret is visible between [0, 0.5) and hidden between [0.5, 1).
-    blink_phase: Cell<f32>,
+    blink_phase: f32,
     // Key and delay until the next repeat.
-    held_key: Cell<Option<(Key, f32)>>,
+    held_key: Option<(Key, f32)>,
 
-    scroll_start: Cell<usize>,
+    scroll_start: usize,
 
-    selection_start: Cell<Caret>,
-    caret: Cell<Caret>,
-    vertical_col: Cell<usize>,
+    selection_start: Caret,
+    caret: Caret,
+    vertical_col: usize,
 
     // Position and time since hover started.
-    hover: Cell<Option<(Caret, f32)>>,
+    hover: Option<(Caret, f32)>,
 
     // Starting row & column, separator column and content.
-    overlay: RefCell<(usize, usize, usize, Vec<Line>)>,
+    overlay: (usize, usize, usize, Vec<Line>),
 
     // Path to the file on disk.
     path: PathBuf,
 
-    lines: RefCell<Vec<Line>>,
-    unsaved: Cell<bool>,
+    lines: Vec<Line>,
+    unsaved: bool,
 
-    rustc: RefCell<Rustc>,
-    new_rustc: RefCell<Option<Rustc>>,
-    rustc_dirty: Cell<(usize, usize)>
+    rustc: Rustc,
+    new_rustc: Option<Rustc>,
+    rustc_dirty: Range<usize>
 }
 
 #[derive(Copy, Clone)]
@@ -152,35 +152,35 @@ impl Editor {
             offset: 0
         };
 
-        let editor = Editor {
+        let mut editor = Editor {
             bb: RectBB::default(),
             font: text::Mono,
             font_bold: text::MonoBold,
             font_metrics: Cell::new(GlyphMetrics::default()),
-            over: Cell::new(false),
-            down: Cell::new(false),
-            scroll_start: Cell::new(0),
+            over: false,
+            down: false,
+            scroll_start: 0,
 
-            blink_phase: Cell::new(0.0),
-            held_key: Cell::new(None),
+            blink_phase: 0.0,
+            held_key: None,
 
-            selection_start: Cell::new(caret),
-            caret: Cell::new(caret),
-            vertical_col: Cell::new(0),
+            selection_start: caret,
+            caret: caret,
+            vertical_col: 0,
 
-            hover: Cell::new(None),
-            overlay: RefCell::new((0, 0, 0, vec![])),
+            hover: None,
+            overlay: (0, 0, 0, vec![]),
 
             path: path.to_path_buf(),
-            lines: RefCell::new(lines),
-            unsaved: Cell::new(false),
+            lines: lines,
+            unsaved: false,
 
-            rustc: RefCell::new(Rustc::start(data)),
-            new_rustc: RefCell::new(None),
-            rustc_dirty: Cell::new((0, 0))
+            rustc: Rustc::start(data),
+            new_rustc: None,
+            rustc_dirty: 0..0
         };
 
-        let num_lines = editor.lines.borrow().len();
+        let num_lines = editor.lines.len();
         editor.update_hl(0..num_lines, false);
 
         editor
@@ -191,20 +191,21 @@ impl Editor {
     }
 
     pub fn is_saved(&self) -> bool {
-        !self.unsaved.get()
+        !self.unsaved
     }
 
-    pub fn save(&self) {
+    pub fn save(&mut self) {
         println!("Saving {:?}...", self.path);
         self.write_data(fs::File::create(&self.path).unwrap()).unwrap();
-        self.unsaved.set(false);
+        self.unsaved = false;
     }
 
-    fn build_overlay(&self, k: Caret, diagnostics: &[(rustc::Level, usize, String)], types: &mut [(Range<usize>, String)])
+    fn build_overlay(&self, k: Caret,
+                     diagnostics: &[(rustc::Level, usize, String)],
+                     types: &mut [(Range<usize>, String)])
                      -> (usize, usize, usize, Vec<Line>) {
         let row = k.row;
-        let lines = self.lines.borrow();
-        let line = &lines[row];
+        let line = &self.lines[row];
 
         if types.is_empty() {
             let mut start_col = line.columns;
@@ -296,13 +297,12 @@ impl Editor {
     }
 
     fn write_data<W: Write>(&self, mut w: W) -> io::Result<()> {
-        let lines = self.lines.borrow();
-        if lines.is_empty() {
+        if self.lines.is_empty() {
             return Ok(());
         }
 
-        try!(w.write(lines[0].data.as_bytes()));
-        for line in &lines[1..] {
+        try!(w.write(self.lines[0].data.as_bytes()));
+        for line in &self.lines[1..] {
             try!(w.write(b"\n"));
             try!(w.write(line.data.as_bytes()));
         }
@@ -325,17 +325,16 @@ impl Editor {
         }
 
         let mut k = Caret {
-            row:  (y / metrics.height) as usize + self.scroll_start.get(),
+            row:  (y / metrics.height) as usize + self.scroll_start,
             col: 0,
             offset: 0
         };
 
-        let lines = self.lines.borrow();
-        if k.row >= lines.len() {
+        if k.row >= self.lines.len() {
             return None;
         }
 
-        for c in lines[k.row].data.chars() {
+        for c in self.lines[k.row].data.chars() {
             let prev_k = k;
             k.advance(c, true);
             if k.col as Px * metrics.width > x {
@@ -347,14 +346,13 @@ impl Editor {
 
     /// Move a caret forwards or backwards, wrapping at line ends.
     fn advance_caret(&self, mut k: Caret, dir: Dir) -> Caret {
-        let lines = self.lines.borrow();
-        let line = &lines[k.row];
+        let line = &self.lines[k.row];
 
         match dir {
             Dir::Right => {
                 if let Some(c) = line.data[k.offset..].chars().next() {
                     k.advance(c, true);
-                } else if k.row + 1 < lines.len() {
+                } else if k.row + 1 < self.lines.len() {
                     k.row += 1;
                     k.col = 0;
                     k.offset = 0;
@@ -365,12 +363,12 @@ impl Editor {
                     k.advance(c, false);
                 } else if k.row > 0 {
                     k.row -= 1;
-                    k.col = lines[k.row].columns;
-                    k.offset = lines[k.row].data.len();
+                    k.col = self.lines[k.row].columns;
+                    k.offset = self.lines[k.row].data.len();
                 }
             }
             Dir::Down => {
-                if k.row + 1 < lines.len() {
+                if k.row + 1 < self.lines.len() {
                     k.row += 1;
                 } else {
                     k.col = usize::MAX;
@@ -387,16 +385,17 @@ impl Editor {
 
         match dir {
             Dir::Down | Dir::Up => {
-                if k.col > lines[k.row].columns {
+                let line = &self.lines[k.row];
+                if k.col > line.columns {
                     // Move to the end of the line.
-                    k.col = lines[k.row].columns;
-                    k.offset = lines[k.row].data.len();
+                    k.col = line.columns;
+                    k.offset = line.data.len();
                 } else {
                     // Find the caret position at the same column.
                     let target = k.col;
                     k.col = 0;
                     k.offset = 0;
-                    for c in lines[k.row].data.chars() {
+                    for c in line.data.chars() {
                         if k.col >= target {
                             break;
                         }
@@ -410,85 +409,82 @@ impl Editor {
         k
     }
 
-    fn move_to(&self, k: Caret, hold: bool) {
+    fn move_to(&mut self, k: Caret, hold: bool) {
         if !hold {
-            self.selection_start.set(k);
+            self.selection_start = k;
         }
-        self.caret.set(k);
-        self.vertical_col.set(k.col);
-        self.blink_phase.set(0.0);
+        self.caret = k;
+        self.vertical_col = k.col;
+        self.blink_phase = 0.0;
 
         // Make sure the caret stays in the viewport.
-        let scroll_start = self.scroll_start.get();
-        if k.row < scroll_start {
-            self.scroll_start.set(k.row);
+        if k.row < self.scroll_start {
+            self.scroll_start = k.row;
         } else {
             let metrics = self.font_metrics.get();
             let bb = self.bb();
             let h = bb.y2 - bb.y1;
             if metrics.height != 0.0 && h > 0.0 {
                 let rows = (h / metrics.height) as usize;
-                if k.row >= scroll_start + rows {
-                    self.scroll_start.set(k.row - rows + 1);
+                if k.row >= self.scroll_start + rows {
+                    self.scroll_start = k.row - rows + 1;
                 }
             }
         }
     }
 
-    fn update_hl(&self, mut range: Range<usize>, dirty: bool) {
+    fn update_hl(&mut self, mut range: Range<usize>, dirty: bool) {
         if dirty {
-            let rustc_dirty = self.rustc_dirty.get();
-            if rustc_dirty == (0, 0) {
-                self.rustc_dirty.set((range.start, range.end));
+            if self.rustc_dirty == (0..0) {
+                self.rustc_dirty = range.clone();
             } else {
-                self.rustc_dirty.set((min(range.start, rustc_dirty.0), max(range.end, rustc_dirty.1)));
+                let (start, end) = (self.rustc_dirty.start, self.rustc_dirty.end);
+                self.rustc_dirty = min(range.start, start)..max(range.end, end);
             }
-            *self.new_rustc.borrow_mut() = Some(Rustc::start(self.data_to_string()));
-            self.unsaved.set(true);
+            self.new_rustc = Some(Rustc::start(self.data_to_string()));
+            self.unsaved = true;
         }
 
-        let mut lines = self.lines.borrow_mut();
-        while lines[range.start].hl_depth > 0 && range.start > 0 {
+        while self.lines[range.start].hl_depth > 0 && range.start > 0 {
             range.start -= 1;
         }
-        while lines[range.end - 1].hl_depth > 0 && range.end < lines.len() {
+        while self.lines[range.end - 1].hl_depth > 0 && range.end < self.lines.len() {
             range.end += 1;
         }
 
-        let (d, mut hl) = highlight::Rust::run(lines[range.clone()].iter().map(|line| &line.data[..]));
+        let (d, mut hl) = highlight::Rust::run(self.lines[range.clone()].iter().map(|line| &line.data[..]));
 
         // Fallback to re-highlight everything until the end.
         if d > 0 {
-            hl = highlight::Rust::run(lines.iter().map(|line| &line.data[..])).1;
-            range = 0..lines.len();
+            hl = highlight::Rust::run(self.lines.iter().map(|line| &line.data[..])).1;
+            range = 0..self.lines.len();
         }
 
-        for (line, (hl_depth, ranges)) in lines[range].iter_mut().zip(hl.into_iter()) {
+        for (line, (hl_depth, ranges)) in self.lines[range].iter_mut().zip(hl.into_iter()) {
             line.hl_depth = hl_depth;
             line.ranges = ranges;
             line.update_columns();
         }
     }
 
-    fn remove(&self, range: Range<Caret>) {
+    fn remove(&mut self, range: Range<Caret>) {
         let (s1, s2) = (range.start, range.end);
-        let mut lines = self.lines.borrow_mut();
 
         // Remove part of the first line.
         if s1.row == s2.row {
-            let line = &mut lines[s1.row].data;
+            let line = &mut self.lines[s1.row].data;
 
             let final_len = line.len() - (s2.offset - s1.offset);
             while line.len() > final_len {
                 line.remove(s1.offset);
             }
         } else {
-            lines[s1.row].data.truncate(s1.offset);
+            self.lines[s1.row].data.truncate(s1.offset);
         }
 
         // Add part of last line to first line (if range has at least 2 lines).
         if s1.row < s2.row {
-            let (dest, src) = lines[s1.row..].split_at_mut(1);
+            let (dest, src) = self.lines[s1.row..].split_at_mut(1);
             let dest = &mut dest[0].data;
             let src = &mut src[s2.row - s1.row - 1].data;
 
@@ -497,12 +493,12 @@ impl Editor {
 
         // Remove all other lines.
         for _ in s1.row+1..s2.row+1 {
-            lines.remove(s1.row + 1);
+            self.lines.remove(s1.row + 1);
         }
     }
 
-    fn insert(&self, data: &str) {
-        let (s1, s2) = (self.selection_start.get(), self.caret.get());
+    fn insert(&mut self, data: &str) {
+        let (s1, s2) = (self.selection_start, self.caret);
         let (s1, s2) = (min(s1, s2), max(s1, s2));
 
         if s1 != s2 {
@@ -510,27 +506,24 @@ impl Editor {
         }
 
         let mut k = s1;
-        {
-            let mut lines = self.lines.borrow_mut();
-            for c in data.chars() {
-                match c {
-                    '\n' => {
-                        let new_line = Line::new(lines[k.row].data[k.offset..].to_owned());
-                        lines[k.row].data.truncate(k.offset);
-                        lines.insert(k.row + 1, new_line);
-                        k.row += 1;
-                        k.col = 0;
-                        k.offset = 0;
-                    }
-                    '\t' => for _ in (k.col % 4)..4 {
-                        lines[k.row].data.insert(k.offset, ' ');
-                        k.offset += 1;
-                        k.col += 1;
-                    },
-                    _ => {
-                        lines[k.row].data.insert(k.offset, c);
-                        k.advance(c, true);
-                    }
+        for c in data.chars() {
+            match c {
+                '\n' => {
+                    let new_line = Line::new(self.lines[k.row].data[k.offset..].to_owned());
+                    self.lines[k.row].data.truncate(k.offset);
+                    self.lines.insert(k.row + 1, new_line);
+                    k.row += 1;
+                    k.col = 0;
+                    k.offset = 0;
+                }
+                '\t' => for _ in (k.col % 4)..4 {
+                    self.lines[k.row].data.insert(k.offset, ' ');
+                    k.offset += 1;
+                    k.col += 1;
+                },
+                _ => {
+                    self.lines[k.row].data.insert(k.offset, c);
+                    k.advance(c, true);
                 }
             }
         }
@@ -539,15 +532,14 @@ impl Editor {
         self.move_to(k, false);
     }
 
-    fn press(&self, key: Key) -> bool {
-        let (s1, s2) = (self.selection_start.get(), self.caret.get());
+    fn press(&mut self, key: Key) -> bool {
+        let (s1, s2) = (self.selection_start, self.caret);
         let mut k = s2;
         let (mut s1, mut s2) = (min(s1, s2), max(s1, s2));
 
         let mut dirty = false;
 
-        dirty |= self.hover.get().is_some();
-        self.hover.set(None);
+        dirty |= self.hover.take().is_some();
 
         match key {
             Key::Return => self.insert("\n"),
@@ -569,17 +561,25 @@ impl Editor {
                 self.move_to(s1, false);
             }
             // TODO shift support.
-            Key::Left => self.move_to(self.advance_caret(k, Dir::Left), false),
-            Key::Right => self.move_to(self.advance_caret(k, Dir::Right), false),
+            Key::Left => {
+                k = self.advance_caret(k, Dir::Left);
+                self.move_to(k, false);
+            }
+            Key::Right => {
+                k = self.advance_caret(k, Dir::Right);
+                self.move_to(k, false);
+            }
             Key::Down => {
-                k.col = self.vertical_col.get();
-                self.move_to(self.advance_caret(k, Dir::Down), false);
-                self.vertical_col.set(k.col);
+                k.col = self.vertical_col;
+                let k2 = self.advance_caret(k, Dir::Down);
+                self.move_to(k2, false);
+                self.vertical_col = k.col;
             }
             Key::Up => {
-                k.col = self.vertical_col.get();
-                self.move_to(self.advance_caret(k, Dir::Up), false);
-                self.vertical_col.set(k.col);
+                k.col = self.vertical_col;
+                let k2 = self.advance_caret(k, Dir::Up);
+                self.move_to(k2, false);
+                self.vertical_col = k.col;
             }
             _ => return dirty
         }
@@ -595,7 +595,7 @@ impl RectBounded for Editor {
 impl tab::Tab for Editor {
     fn title(&self) -> String {
         let mut title = self.path.file_name().unwrap().to_string_lossy().into_owned();
-        if self.unsaved.get() {
+        if self.unsaved {
             title.push('*');
         }
         title
@@ -610,24 +610,18 @@ impl Draw for Editor {
             self.font_metrics.set(metrics);
         }
 
-        if self.over.get() {
+        if self.over {
             cx.cursor(MouseCursor::Text);
         }
 
         let bb = self.bb();
-        let start = self.scroll_start.get();
+        let start = self.scroll_start;
         let end = start + (((bb.y2 - bb.y1) / metrics.height) as usize);
-        let lines = self.lines.borrow();
-        let lines = if end < lines.len() {
-            &lines[start..end]
-        } else {
-            &lines[start..]
-        };
+        let lines = &self.lines[start..min(end, self.lines.len())];
 
         cx.fill(bb, ColorScheme.back_view());
 
-        let s1 = self.selection_start.get();
-        let s2 = self.caret.get();
+        let (s1, s2) = (self.selection_start, self.caret);
         let k = s2;
         if start <= s2.row && s2.row <= end {
             let y = bb.y1 + ((s2.row - start) as Px * metrics.height);
@@ -639,9 +633,7 @@ impl Draw for Editor {
 
         // Error lines.
         {
-            let rustc = self.rustc.borrow();
-            let new_rustc = self.new_rustc.borrow();
-            let rustc = if let Some(ref rustc) = *new_rustc { rustc } else { &*rustc };
+            let rustc = self.new_rustc.as_ref().unwrap_or(&self.rustc);
             for i in start..end {
                 if let Some(lines) = rustc.diagnostics.get(&i) {
                     let error = lines.iter().any(|&(level, _, _)| {
@@ -715,7 +707,7 @@ impl Draw for Editor {
         }
 
         // Caret on top of everything else.
-        if self.blink_phase.get() < BLINK_SPACING && start <= k.row && k.row <= end {
+        if self.blink_phase < BLINK_SPACING && start <= k.row && k.row <= end {
             let y = bb.y1 + ((k.row - start) as Px * metrics.height);
 
             // TODO proper BB scissoring.
@@ -726,8 +718,7 @@ impl Draw for Editor {
             }
         }
 
-        let overlay = self.overlay.borrow();
-        let (start_row, start_col, separator, ref overlay) = *overlay;
+        let (start_row, start_col, separator, ref overlay) = self.overlay;
         if overlay.is_empty() || start_row <= start {
             return;
         }
@@ -794,64 +785,55 @@ impl Draw for Editor {
 }
 
 impl Dispatch<MouseDown> for Editor {
-    fn dispatch(&self, ev: &MouseDown) -> bool {
+    fn dispatch(&mut self, ev: &MouseDown) -> bool {
         if !self.bb().contains([ev.x, ev.y]) {
             return false;
         }
 
         let mut dirty = false;
-        self.down.set(true);
+        self.down = true;
 
         if let Some(k) = self.pos_to_caret([ev.x, ev.y]) {
             self.move_to(k, false);
             dirty = true;
         }
 
-        dirty |= self.hover.get().is_some();
-        self.hover.set(None);
-
-        dirty
+        dirty | self.hover.take().is_some()
     }
 }
 
 impl Dispatch<MouseUp> for Editor {
-    fn dispatch(&self, _: &MouseUp) -> bool {
-        self.down.set(false);
+    fn dispatch(&mut self, _: &MouseUp) -> bool {
+        self.down = false;
         false
     }
 }
 
 impl Dispatch<MouseMove> for Editor {
-    fn dispatch(&self, ev: &MouseMove) -> bool {
+    fn dispatch(&mut self, ev: &MouseMove) -> bool {
         let over = self.bb().contains([ev.x, ev.y]);
         let mut dirty = false;
-        if over != self.over.get() {
-            self.over.set(over);
-            dirty = true;
-        }
+        if over != self.over { self.over = over; dirty = true; }
 
-        let hover = self.hover.get();
         if let Some(k) = self.pos_to_caret([ev.x, ev.y]) {
-            if self.down.get() {
+            if self.down {
                 self.move_to(k, true);
                 dirty = true;
             }
 
             let mut k = k;
             k.col = ((ev.x - self.bb().x1) / self.font_metrics.get().width) as usize;
-            let over_caret = self.selection_start.get() == k && self.caret.get() == k;
-            if !self.down.get() && !(hover.is_none() && over_caret) {
-                if hover.map(|(k, _)| k) != Some(k) {
-                    self.hover.set(Some((k, 0.0)));
+            let over_caret = self.selection_start == k && self.caret == k;
+            if !self.down && !(self.hover.is_none() && over_caret) {
+                if self.hover.map(|(k, _)| k) != Some(k) {
+                    self.hover = Some((k, 0.0));
                     dirty = true;
                 }
             } else {
-                self.hover.set(None);
-                dirty |= hover.is_some();
+                dirty |= self.hover.take().is_some();
             }
         } else {
-            self.hover.set(None);
-            dirty |= hover.is_some();
+            dirty |= self.hover.take().is_some();
         }
 
         dirty
@@ -859,7 +841,7 @@ impl Dispatch<MouseMove> for Editor {
 }
 
 impl Dispatch<MouseScroll> for Editor {
-    fn dispatch(&self, ev: &MouseScroll) -> bool {
+    fn dispatch(&mut self, ev: &MouseScroll) -> bool {
         let metrics = self.font_metrics.get();
         if metrics.width == 0.0 {
             return false;
@@ -872,20 +854,19 @@ impl Dispatch<MouseScroll> for Editor {
 
         let dy = -dy;
         let bb = self.bb();
-        let sy = self.scroll_start.get();
-        let new_sy = if dy < 0.0 {
+        let sy = self.scroll_start;
+        self.scroll_start = if dy < 0.0 {
             let dy = -dy as usize;
             if sy < dy { sy } else { sy - dy }
         } else {
             let dy = dy as usize;
-            if ((self.lines.borrow().len() as Px) + 1.0 - ((sy + dy) as Px)) * metrics.height <= (bb.y2 - bb.y1) {
+            if ((self.lines.len() as Px) + 1.0 - ((sy + dy) as Px)) * metrics.height <= (bb.y2 - bb.y1) {
                 sy
             } else {
                 sy + dy
             }
         };
-        self.scroll_start.set(new_sy);
-        (new_sy != sy) | self.dispatch(&MouseMove::new(ev.x, ev.y))
+        (self.scroll_start != sy) | self.dispatch(&MouseMove::new(ev.x, ev.y))
     }
 }
 
@@ -895,26 +876,24 @@ const KEY_REPEAT_SPACING: f32 = 1.0 / 25.0;
 const HOVER_DELAY: f32 = 1.0;
 
 impl Dispatch<Update> for Editor {
-    fn dispatch(&self, &Update(dt): &Update) -> bool {
+    fn dispatch(&mut self, &Update(dt): &Update) -> bool {
         let mut dirty = false;
 
-        let blink = (self.blink_phase.get() + dt) % (BLINK_SPACING * 2.0);
-        dirty |= (blink >= BLINK_SPACING) != (self.blink_phase.get() >= BLINK_SPACING);
-        self.blink_phase.set(blink);
+        let blink = (self.blink_phase + dt) % (BLINK_SPACING * 2.0);
+        dirty |= (blink >= BLINK_SPACING) != (self.blink_phase >= BLINK_SPACING);
+        self.blink_phase = blink;
 
-        if let Some((key, d)) = self.held_key.get() {
+        if let Some((key, d)) = self.held_key {
             let mut d = d - dt;
             while d <= 0.0 {
                 dirty |= self.press(key);
                 d += KEY_REPEAT_SPACING;
             }
-            self.held_key.set(Some((key, d)));
+            self.held_key = Some((key, d));
         }
 
-        let mut rustc = self.rustc.borrow_mut();
-        let mut new_rustc = self.new_rustc.borrow_mut();
         {
-            let ready = if let Some(ref mut new_rustc) = *&mut *new_rustc {
+            let ready = if let Some(ref mut new_rustc) = self.new_rustc {
                 dirty |= new_rustc.update();
                 new_rustc.state == rustc::State::Waiting
             } else {
@@ -923,62 +902,56 @@ impl Dispatch<Update> for Editor {
 
             // No errors, save new rustc.
             if ready {
-                *rustc = new_rustc.take().unwrap();
-                self.rustc_dirty.set((0, 0));
+                self.rustc = self.new_rustc.take().unwrap();
+                self.rustc_dirty = 0..0;
             } else {
-                dirty |= rustc.update();
+                dirty |= self.rustc.update();
             }
         }
 
-        let mut overlay = self.overlay.borrow_mut();
-
         // Show hover overlay.
-        if let Some((hk, ht)) = self.hover.get() {
-            self.hover.set(Some((hk, ht + dt)));
+        if let Some((hk, ht)) = self.hover {
+            self.hover = Some((hk, ht + dt));
             if ht < HOVER_DELAY && ht + dt >= HOVER_DELAY {
-                let (start, end) = self.rustc_dirty.get();
-                let lines = self.lines.borrow();
-                if (hk.row < start || hk.row >= end) && hk.col < lines[hk.row].columns {
+                let (start, end) = (self.rustc_dirty.start, self.rustc_dirty.end);
+                let line = &self.lines[hk.row];
+                if (hk.row < start || hk.row >= end) && hk.col < line.columns {
                     let line_offset = if hk.row < start || (start, end) == (0, 0) {
-                        lines[..hk.row].iter().map(|l| l.data.len() + 1).sum()
+                        self.lines[..hk.row].iter().map(|l| l.data.len() + 1).sum()
                     } else if hk.row >= end {
-                        let to_end: usize = lines[hk.row..].iter().map(|l| l.data.len() + 1).sum();
-                        rustc.file_end + 1 - to_end
+                        let to_end: usize = self.lines[hk.row..].iter().map(|l| l.data.len() + 1).sum();
+                        self.rustc.file_end + 1 - to_end
                     } else {
                         unreachable!()
                     };
-                    let line_range = line_offset..line_offset+lines[hk.row].data.len();
+                    let line_range = line_offset..line_offset+line.data.len();
 
                     // Send request for types under cursor.
-                    rustc.types_at_offset(line_offset + hk.offset, line_range);
+                    self.rustc.types_at_offset(line_offset + hk.offset, line_range);
                     dirty = true;
-                    *overlay = (0, 0, 0, vec![]);
+                    self.overlay = (0, 0, 0, vec![]);
                 }
             }
         }
 
         // Hide overlay.
-        if self.hover.get().map(|(_, ht)| ht).unwrap_or(0.0) < HOVER_DELAY {
-            dirty |= !overlay.3.is_empty();
-            *overlay = (0, 0, 0, vec![]);
+        if self.hover.map(|(_, ht)| ht).unwrap_or(0.0) < HOVER_DELAY {
+            dirty |= !self.overlay.3.is_empty();
+            self.overlay = (0, 0, 0, vec![]);
             // Clear pending requests.
-            if let rustc::State::TypesAtOffset(_) = rustc.state {
-                rustc.state = rustc::State::Waiting;
+            if let rustc::State::TypesAtOffset(_) = self.rustc.state {
+                self.rustc.state = rustc::State::Waiting;
             }
-            rustc.types_at_offset = None;
-        } else if overlay.3.is_empty() {
-            let (hk, _) = self.hover.get().unwrap();
-            let mut types = rustc.types_at_offset.take();
+            self.rustc.types_at_offset = None;
+        } else if self.overlay.3.is_empty() {
+            let (hk, _) = self.hover.unwrap();
+            let mut types = self.rustc.types_at_offset.take();
             {
-                let diagnostics = if let Some(ref rustc) = *new_rustc {
-                    &rustc.diagnostics
-                } else {
-                    &rustc.diagnostics
-                };
-                *overlay = self.build_overlay(hk, diagnostics.get(&hk.row).unwrap_or(&vec![]),
-                                              types.as_mut().unwrap_or(&mut vec![]));
+                let diagnostics = &self.new_rustc.as_ref().unwrap_or(&self.rustc).diagnostics;
+                self.overlay = self.build_overlay(hk, diagnostics.get(&hk.row).unwrap_or(&vec![]),
+                                                  types.as_mut().unwrap_or(&mut vec![]));
             }
-            rustc.types_at_offset = types;
+            self.rustc.types_at_offset = types;
             dirty = true;
         }
 
@@ -987,7 +960,7 @@ impl Dispatch<Update> for Editor {
 }
 
 impl<'a> Dispatch<TextInput<'a>> for Editor {
-    fn dispatch(&self, ev: &TextInput) -> bool {
+    fn dispatch(&mut self, ev: &TextInput) -> bool {
         let mut dirty = false;
 
         if !ev.0.is_empty() {
@@ -995,25 +968,24 @@ impl<'a> Dispatch<TextInput<'a>> for Editor {
             dirty = true;
         }
 
-        dirty |= self.hover.get().is_some();
-        self.hover.set(None);
+        dirty |= self.hover.take().is_some();
 
         dirty
     }
 }
 
 impl Dispatch<KeyDown> for Editor {
-    fn dispatch(&self, &KeyDown(key): &KeyDown) -> bool {
-        self.held_key.set(Some((key, KEY_REPEAT_DELAY)));
+    fn dispatch(&mut self, &KeyDown(key): &KeyDown) -> bool {
+        self.held_key = Some((key, KEY_REPEAT_DELAY));
         self.press(key)
     }
 }
 
 impl Dispatch<KeyUp> for Editor {
-    fn dispatch(&self, &KeyUp(key): &KeyUp) -> bool {
-        if let Some((k, _)) = self.held_key.get() {
+    fn dispatch(&mut self, &KeyUp(key): &KeyUp) -> bool {
+        if let Some((k, _)) = self.held_key {
             if k == key {
-                self.held_key.set(None);
+                self.held_key = None;
             }
         }
         false
