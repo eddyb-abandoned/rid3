@@ -13,6 +13,7 @@ dependencies = [
  "regex 0.1.30 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex_macros 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)",
  "shared_library 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "unicode-width 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -427,6 +428,11 @@ dependencies = [
  "lazy_static 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
+
+[[package]]
+name = "unicode-width"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "user32-sys"

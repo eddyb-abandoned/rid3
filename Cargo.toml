@@ -7,6 +7,7 @@ authors = ["Eduard-Mihai Burtescu <edy.burt@gmail.com>"]
 regex = "*"
 regex_macros = "*"
 image = "*"
+unicode-width = "*"
 
 [target.i686-pc-windows-gnu.dependencies]
 winapi = "*"

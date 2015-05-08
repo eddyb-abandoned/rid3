@@ -1,7 +1,8 @@
-#![feature(alloc, box_syntax, catch_panic, core, plugin, rustc_private, slice_patterns, unicode)]
+#![feature(alloc, box_syntax, catch_panic, core, plugin, rustc_private, slice_patterns)]
 #![plugin(regex_macros)]
 extern crate regex;
 extern crate arena;
+extern crate unicode_width;
 
 extern crate image;
 #[macro_use(uniform, implement_vertex)]

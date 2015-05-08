@@ -8,6 +8,7 @@ use std::iter::repeat;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::usize;
+use unicode_width::UnicodeWidthChar;
 
 use cfg::ColorScheme;
 use glyph::GlyphMetrics;
@@ -72,7 +73,7 @@ impl Caret {
             // FIXME this won't work backwards.
             7 - (self.col + 7) % 8
         } else {
-            c.width(false).unwrap_or(1)
+            UnicodeWidthChar::width(c).unwrap_or(1)
         };
         let l = c.len_utf8();
 
