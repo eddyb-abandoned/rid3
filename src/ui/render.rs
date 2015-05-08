@@ -37,7 +37,7 @@ struct VertexUV {
 }
 implement_vertex!(VertexUV, uv);
 
-const VERTEX_COUNT: usize = 1024;
+const VERTEX_COUNT: usize = 256;
 
 pub struct Renderer {
     data: Box<([VertexXY; VERTEX_COUNT], [VertexUV; VERTEX_COUNT])>,
@@ -104,18 +104,18 @@ impl Renderer {
     }
 
     pub fn colored<F>(&mut self, surface: &mut Surface, color: Color, mut f: F)
-        where F: FnMut((&mut [VertexXY; VERTEX_COUNT], &mut FnMut(&[VertexXY]))) {
+        where F: FnMut((&mut [VertexXY; VERTEX_COUNT], &mut FnMut(&[VertexXY], PrimitiveType))) {
 
         let color = gamma_pre_correct(color);
         let scale = self.scale(surface);
         let xy_buffer = &self.xy_buffer;
         let shader = &self.shader_color;
 
-        f((&mut self.data.0, &mut |xy_data: &[VertexXY]| {
+        f((&mut self.data.0, &mut |xy_data: &[VertexXY], ty| {
             let xys = xy_buffer.slice(0..xy_data.len()).unwrap();
             xys.write(xy_data);
 
-            surface.draw(xys, &NoIndices(PrimitiveType::TrianglesList), shader,
+            surface.draw(xys, &NoIndices(ty), shader,
                 &uniform! {
                     color: color,
                     scale: scale
@@ -134,20 +134,20 @@ impl Renderer {
     pub fn textured<F>(&mut self, surface: &mut Surface, color: Color, texture: &Texture2d, mut f: F)
         where F: FnMut((&mut [VertexXY; VERTEX_COUNT],
                         &mut [VertexUV; VERTEX_COUNT],
-                        &mut FnMut(&[VertexXY], &[VertexUV]))) {
+                        &mut FnMut(&[VertexXY], &[VertexUV], PrimitiveType))) {
         let color = gamma_pre_correct(color);
         let scale = self.scale(surface);
         let shader = &self.shader_texture;
         let (xy_buffer, uv_buffer) = (&self.xy_buffer, &self.uv_buffer);
         let (ref mut xy_data, ref mut uv_data) = *&mut *self.data;
 
-        f((xy_data, uv_data,  &mut |xy_data: &[VertexXY], uv_data: &[VertexUV]| {
+        f((xy_data, uv_data,  &mut |xy_data: &[VertexXY], uv_data: &[VertexUV], ty| {
             let xys = xy_buffer.slice(0..xy_data.len()).unwrap();
             let uvs = uv_buffer.slice(0..uv_data.len()).unwrap();
             xys.write(xy_data);
             uvs.write(uv_data);
 
-            surface.draw((xys, uvs), &NoIndices(PrimitiveType::TrianglesList), shader,
+            surface.draw((xys, uvs), &NoIndices(ty), shader,
                 &uniform! {
                     color: color,
                     scale: scale,
@@ -168,33 +168,44 @@ impl Renderer {
 pub trait Buffer: Sized {
     type E: Copy + Neg<Output=Self::E> + Add<Output=Self::E> + Sub<Output=Self::E> + Mul<Px, Output=Self::E>;
 
-    fn triangle(&mut self, i: &mut usize, tri: [[Self::E; 2]; 3]);
+    fn vertex(&mut self, i: usize, vertex: [Self::E; 2]);
+    fn flush(&mut self, n: usize, ty: PrimitiveType);
+    fn flush_if_full(&mut self, n: usize, ty: PrimitiveType) -> bool;
 
-    fn flush(&mut self, i: usize);
-
-    fn filled_polygon<I: Iterator<Item=[Self::E; 2]>>(&mut self, mut polygon: I) {
-        let first = match polygon.next() { None => return, Some(val) => val };
-        let mut last = match polygon.next() { None => return, Some(val) => val };
-
+    fn filled_polygon<I: Iterator<Item=[Self::E; 2]>>(&mut self, polygon: I) {
         let mut i = 0;
         for vertex in polygon {
-            self.triangle(&mut i, [first, last, vertex]);
-            last = vertex;
+            self.vertex(i, vertex);
+            i += 1;
+
+            if self.flush_if_full(i, PrimitiveType::TriangleFan) {
+                // Preserve the first and last vertices.
+                self.vertex(1, vertex);
+                i = 2;
+            }
         }
-        self.flush(i);
+        self.flush(i, PrimitiveType::TriangleFan);
     }
 
     fn hollow_polygon<I: Iterator<Item=([Self::E; 2], [Self::E; 2])>>(&mut self, mut polygon: I) {
-        let (mut a, mut b) = match polygon.next() { None => return, Some(x) => x };
+        let (a, b) = match polygon.next() { None => return, Some(x) => x };
+        self.vertex(0, a);
+        self.vertex(1, b);
 
-        let mut i = 0;
+        let mut i = 2;
         for (c, d) in polygon.chain(Some((a, b)).into_iter()) {
-            self.triangle(&mut i, [a, b, c]);
-            self.triangle(&mut i, [b, c, d]);
-            a = c;
-            b = d;
+            self.vertex(i, c);
+            self.vertex(i + 1, d);
+            i += 2;
+
+            if self.flush_if_full(i, PrimitiveType::TriangleStrip) {
+                // Preserve the last two vertices.
+                self.vertex(0, c);
+                self.vertex(1, d);
+                i = 2;
+            }
         }
-        self.flush(i);
+        self.flush(i, PrimitiveType::TriangleStrip);
     }
 
     fn rect(mut self, bb: BB<Self::E>) {
@@ -248,26 +259,28 @@ pub trait Buffer: Sized {
 }
 
 impl<'a, F> Buffer for (&'a mut [VertexXY; VERTEX_COUNT], F)
-    where F: FnMut(&[VertexXY]) {
+    where F: FnMut(&[VertexXY], PrimitiveType) {
 
     type E = Px;
 
-    fn triangle(&mut self, i: &mut usize, [a, b, c]: [[Px; 2]; 3]) {
-        self.0[*i + 0].xy = a;
-        self.0[*i + 1].xy = b;
-        self.0[*i + 2].xy = c;
+    #[inline(always)]
+    fn vertex(&mut self, i: usize, xy: [Px; 2]) {
+        self.0[i].xy = xy;
+    }
 
-        *i += 3;
-
-        if *i >= VERTEX_COUNT {
-            self.flush(*i);
-            *i = 0;
+    fn flush(&mut self, n: usize, ty: PrimitiveType) {
+        if n >= 3 {
+            self.1(&self.0[..n], ty);
         }
     }
 
-    fn flush(&mut self, i: usize) {
-        if i > 0 {
-            self.1(&self.0[0..i]);
+    #[inline(always)]
+    fn flush_if_full(&mut self, n: usize, ty: PrimitiveType) -> bool {
+        if n >= VERTEX_COUNT {
+            self.1(self.0, ty);
+            true
+        } else {
+            false
         }
     }
 }
@@ -291,30 +304,29 @@ impl Neg for XYAndUV { type Output = Self; fn neg(self) -> Self { self * -1.0 } 
 impl Sub for XYAndUV { type Output = Self; fn sub(self, other: Self) -> Self { self + (-other) } }
 
 impl<'a, 'b, F> Buffer for (&'a mut [VertexXY; VERTEX_COUNT], &'b mut [VertexUV; VERTEX_COUNT], F)
-    where F: FnMut(&[VertexXY], &[VertexUV]) {
+    where F: FnMut(&[VertexXY], &[VertexUV], PrimitiveType) {
 
     type E = XYAndUV;
 
-    fn triangle(&mut self, i: &mut usize, [[ax, ay], [bx, by], [cx, cy]]: [[XYAndUV; 2]; 3]) {
-        self.0[*i + 0].xy = [ax.0, ay.0];
-        self.0[*i + 1].xy = [bx.0, by.0];
-        self.0[*i + 2].xy = [cx.0, cy.0];
+    #[inline(always)]
+    fn vertex(&mut self, i: usize, [XYAndUV(x, u), XYAndUV(y, v)]: [XYAndUV; 2]) {
+        self.0[i].xy = [x, y];
+        self.1[i].uv = [u, v];
+    }
 
-        self.1[*i + 0].uv = [ax.1, ay.1];
-        self.1[*i + 1].uv = [bx.1, by.1];
-        self.1[*i + 2].uv = [cx.1, cy.1];
-
-        *i += 3;
-
-        if *i >= VERTEX_COUNT {
-            self.flush(*i);
-            *i = 0;
+    fn flush(&mut self, n: usize, ty: PrimitiveType) {
+        if n >= 3 {
+            self.2(&self.0[..n], &self.1[..n], ty);
         }
     }
 
-    fn flush(&mut self, i: usize) {
-        if i > 0 {
-            self.2(&self.0[0..i], &self.1[0..i]);
+    #[inline(always)]
+    fn flush_if_full(&mut self, n: usize, ty: PrimitiveType) -> bool {
+        if n >= VERTEX_COUNT {
+            self.2(self.0, self.1, ty);
+            true
+        } else {
+            false
         }
     }
 }
