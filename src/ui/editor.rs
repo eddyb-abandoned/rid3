@@ -14,7 +14,7 @@ use cfg::ColorScheme;
 use glyph::GlyphMetrics;
 
 use ui::{BB, Dir, Px};
-use ui::layout::{RectBB, RectBounded, Layout};
+use ui::layout::{CollectCx, CollectBB, Layout};
 use ui::color::Scheme;
 use ui::draw::{Draw, DrawCx, MouseCursor};
 use ui::event::*;
@@ -25,7 +25,7 @@ use ide::{highlight, rustc};
 use ide::rustc::Rustc;
 
 pub struct Editor {
-    bb: RectBB,
+    bb: BB<Px>,
     font: text::Mono,
     font_bold: text::MonoBold,
     font_metrics: Cell<GlyphMetrics>,
@@ -153,7 +153,7 @@ impl Editor {
         };
 
         let mut editor = Editor {
-            bb: RectBB::default(),
+            bb: BB::default(),
             font: text::Mono,
             font_bold: text::MonoBold,
             font_metrics: Cell::new(GlyphMetrics::default()),
@@ -315,7 +315,7 @@ impl Editor {
             return None;
         }
 
-        let bb = self.bb();
+        let bb = self.bb;
         if x > bb.x2 || y > bb.y2 {
             return None;
         }
@@ -422,8 +422,7 @@ impl Editor {
             self.scroll_start = k.row;
         } else {
             let metrics = self.font_metrics.get();
-            let bb = self.bb();
-            let h = bb.y2 - bb.y1;
+            let h = self.bb.height();
             if metrics.height != 0.0 && h > 0.0 {
                 let rows = (h / metrics.height) as usize;
                 if k.row >= self.scroll_start + rows {
@@ -587,9 +586,11 @@ impl Editor {
     }
 }
 
-impl RectBounded for Editor {
-    fn rect_bb(&self) -> &RectBB { &self.bb }
-    fn name(&self) -> &'static str { "<editor>" }
+impl Layout for Editor {
+    fn bb(&self) -> BB<Px> { self.bb }
+    fn collect<'a>(&'a mut self, cx: &mut CollectCx<'a>) -> CollectBB<'a> {
+        cx.area(&mut self.bb, "<editor>")
+    }
 }
 
 impl tab::Tab for Editor {
@@ -614,9 +615,9 @@ impl Draw for Editor {
             cx.cursor(MouseCursor::Text);
         }
 
-        let bb = self.bb();
+        let bb = self.bb;
         let start = self.scroll_start;
-        let end = start + (((bb.y2 - bb.y1) / metrics.height) as usize);
+        let end = start + ((bb.height() / metrics.height) as usize);
         let lines = &self.lines[start..min(end, self.lines.len())];
 
         cx.fill(bb, ColorScheme.back_view());
@@ -786,7 +787,7 @@ impl Draw for Editor {
 
 impl Dispatch<MouseDown> for Editor {
     fn dispatch(&mut self, ev: &MouseDown) -> bool {
-        if !self.bb().contains([ev.x, ev.y]) {
+        if !self.bb.contains([ev.x, ev.y]) {
             return false;
         }
 
@@ -811,7 +812,7 @@ impl Dispatch<MouseUp> for Editor {
 
 impl Dispatch<MouseMove> for Editor {
     fn dispatch(&mut self, ev: &MouseMove) -> bool {
-        let over = self.bb().contains([ev.x, ev.y]);
+        let over = self.bb.contains([ev.x, ev.y]);
         let mut dirty = false;
         if over != self.over { self.over = over; dirty = true; }
 
@@ -822,7 +823,7 @@ impl Dispatch<MouseMove> for Editor {
             }
 
             let mut k = k;
-            k.col = ((ev.x - self.bb().x1) / self.font_metrics.get().width) as usize;
+            k.col = ((ev.x - self.bb.x1) / self.font_metrics.get().width) as usize;
             let over_caret = self.selection_start == k && self.caret == k;
             if !self.down && !(self.hover.is_none() && over_caret) {
                 if self.hover.map(|(k, _)| k) != Some(k) {
@@ -853,14 +854,14 @@ impl Dispatch<MouseScroll> for Editor {
         }
 
         let dy = -dy;
-        let bb = self.bb();
+        let h = self.bb.height();
         let sy = self.scroll_start;
         self.scroll_start = if dy < 0.0 {
             let dy = -dy as usize;
             if sy < dy { sy } else { sy - dy }
         } else {
             let dy = dy as usize;
-            if ((self.lines.len() as Px) + 1.0 - ((sy + dy) as Px)) * metrics.height <= (bb.y2 - bb.y1) {
+            if ((self.lines.len() as Px) + 1.0 - ((sy + dy) as Px)) * metrics.height <= h {
                 sy
             } else {
                 sy + dy

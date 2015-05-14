@@ -3,10 +3,10 @@ use std::default::Default;
 
 use glyph::{FontSize, Glyph, GlyphMetrics, GlyphCache};
 
-use ui::Px;
+use ui::{BB, Px};
 use ui::color::Color;
 use ui::draw::{Draw, DrawCx};
-use ui::layout::{RectBounded, RectBB, ConstrainCx, Layout};
+use ui::layout::{CollectCx, CollectBB, Layout};
 
 // TODO use a text layouting engine
 
@@ -50,7 +50,7 @@ impl FontFaces {
 }
 
 pub struct Label<F=Regular> {
-    bb: RectBB,
+    bb: BB<Px>,
     font: F,
     pub color: Cell<Color>,
     pub text: &'static str
@@ -59,7 +59,7 @@ pub struct Label<F=Regular> {
 impl<F> Label<F> where F: Default {
     pub fn new(color: Color, text: &'static str) -> Label<F> {
         Label {
-            bb: RectBB::default(),
+            bb: BB::default(),
             font: F::default(),
             color: Cell::new(color),
             text: text
@@ -67,22 +67,22 @@ impl<F> Label<F> where F: Default {
     }
 }
 
-impl<F> RectBounded for Label<F> where F: FontFace {
-    fn rect_bb(&self) -> &RectBB { &self.bb }
-    fn name(&self) -> &'static str { self.text }
-    fn constrain<'a, 'b>(&'a self, (cx, bb): ConstrainCx<'b, 'a>) {
+impl<F> Layout for Label<F> where F: FontFace {
+    fn bb(&self) -> BB<Px> { self.bb }
+    fn collect<'a>(&'a mut self, cx: &mut CollectCx<'a>) -> CollectBB<'a> {
+        let bb = cx.area(&mut self.bb, self.text);
         let (w, h) = {
             let fonts = cx.fonts();
             (fonts.text_width(self.font, self.text), fonts.metrics(self.font).height)
         };
         cx.distance(bb.x1, bb.x2, w);
         cx.distance(bb.y1, bb.y2, h);
+        bb
     }
 }
 
 impl<F> Draw for Label<F> where F: FontFace {
     fn draw(&self, cx: &mut DrawCx) {
-        let bb = self.bb();
-        cx.text(self.font, bb.top_left(), self.color.get(), self.text);
+        cx.text(self.font, self.bb.top_left(), self.color.get(), self.text);
     }
 }

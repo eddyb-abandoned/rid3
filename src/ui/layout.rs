@@ -3,9 +3,10 @@ use std::cell::Cell;
 use std::cmp::Ordering;
 use std::collections::VecDeque;
 use std::fmt;
+use std::mem;
 use std::ops::{Add, Div, Mul, Neg, Sub, Deref, DerefMut};
 
-use ui::{Px, BB};
+use ui::{BB, Px};
 use ui::text;
 
 pub trait Domain: Copy + PartialOrd + fmt::Debug +
@@ -290,18 +291,19 @@ impl<'a, T: Domain> System<'a, T> {
         }
     }
 
-    fn var(&mut self, var: &'a Cell<T>, name: [&'static str; 2])
+    fn var(&mut self, var: &'a mut T, name: [&'static str; 2])
            -> Variable<'a, T> {
-        var.set(-T::infinity());
+        *var = -T::infinity();
+        let var = unsafe { mem::transmute::<&mut T, &Cell<T>>(var) };
         let max = self.var_arena.alloc(Cell::new(T::infinity()));
         let var = Variable { min: var, max: max, name: name };
         self.variables.push(var);
         var
     }
 
-    fn area(&mut self, bb: &'a BB<Cell<T>>, name: &'static str)
+    pub fn area(&mut self, bb: &'a mut BB<T>, name: &'static str)
             -> BB<Variable<'a, T>> {
-        let bb = bb.as_ref().map_name(|x, name2| self.var(x, [name, name2]));
+        let bb = bb.as_mut().map_name(|x, name2| self.var(x, [name, name2]));
         // Low priority as they can be redundant sometimes
         self.order(bb.x1, bb.x2);
         self.constraints.back_mut().unwrap().priority -= 1;
@@ -649,7 +651,7 @@ impl<'a, T: Domain> System<'a, T> {
     }
 }
 
-pub fn compute<R: Layout>(root: &R, fonts: &mut text::FontFaces, w: Px, h: Px) {
+pub fn compute<R: Layout>(root: &mut R, fonts: &mut text::FontFaces, w: Px, h: Px) {
     // TODO reuse the context to avoid allocating every time.
     let var_arena = TypedArena::new();
     let mut cx = CollectCx {
@@ -692,26 +694,25 @@ impl<'a> DerefMut for CollectCx<'a> {
 pub type CollectBB<'a> = BB<Variable<'a, Px>>;
 
 pub trait Layout {
-    fn collect<'a>(&'a self, cx: &mut CollectCx<'a>) -> CollectBB<'a>;
     fn bb(&self) -> BB<Px>;
+    fn collect<'a>(&'a mut self, cx: &mut CollectCx<'a>) -> CollectBB<'a>;
 }
 
 pub type ConstrainCx<'a, 'b> = (&'a mut CollectCx<'b>, &'a mut CollectBB<'b>);
-pub type RectBB = BB<Cell<Px>>;
 
 pub trait RectBounded {
-    fn rect_bb(&self) -> &BB<Cell<Px>>;
+    fn area(&self) -> &mut BB<Px>;
     fn name(&self) -> &'static str { "<unnamed>" }
     fn constrain<'a, 'b>(&'a self, _: ConstrainCx<'b, 'a>) {}
 }
 
 impl<T> Layout for T where T: RectBounded {
-    fn collect<'a>(&'a self, cx: &mut CollectCx<'a>) -> CollectBB<'a> {
-        let mut bb = cx.area(self.rect_bb(), self.name());
+    fn collect<'a>(&'a mut self, cx: &mut CollectCx<'a>) -> CollectBB<'a> {
+        let mut bb = cx.area(self.area(), self.name());
         self.constrain((cx, &mut bb));
         bb
     }
     fn bb(&self) -> BB<Px> {
-        self.rect_bb().as_ref().map(|x| x.get())
+        *self.area()
     }
 }

@@ -17,12 +17,12 @@ macro_rules! flow {
 }
 
 pub trait FlowLayout<D> {
-    fn collect<'a>(&'a self, cx: &mut CollectCx<'a>, _: D) -> CollectBB<'a>;
+    fn collect<'a>(&'a mut self, cx: &mut CollectCx<'a>, _: D) -> CollectBB<'a>;
     fn bb(&self, _: D) -> BB<Px>;
 }
 
 impl<D: Copy, K> Layout for Flow<D, K> where K: FlowLayout<D> {
-    fn collect<'a>(&'a self, cx: &mut CollectCx<'a>) -> CollectBB<'a> {
+    fn collect<'a>(&'a mut self, cx: &mut CollectCx<'a>) -> CollectBB<'a> {
         self.kids.collect(cx, self.dir)
     }
     fn bb(&self) -> BB<Px> {
@@ -31,7 +31,7 @@ impl<D: Copy, K> Layout for Flow<D, K> where K: FlowLayout<D> {
 }
 
 impl<D, T> FlowLayout<D> for T where T: Layout {
-    fn collect<'a>(&'a self, cx: &mut CollectCx<'a>, _: D) -> CollectBB<'a> {
+    fn collect<'a>(&'a mut self, cx: &mut CollectCx<'a>, _: D) -> CollectBB<'a> {
         self.collect(cx)
     }
     fn bb(&self, _: D) -> BB<Px> {
@@ -44,7 +44,7 @@ impl<D, A, B> FlowLayout<D> for (A, B) where
            B: FlowLayout<D>,
            D: Copy,
            Dir: From<D> {
-    fn collect<'a>(&'a self, cx: &mut CollectCx<'a>, dir: D) -> CollectBB<'a> {
+    fn collect<'a>(&'a mut self, cx: &mut CollectCx<'a>, dir: D) -> CollectBB<'a> {
         let a = self.0.collect(cx);
         let b = self.1.collect(cx, dir);
         let dir = Dir::from(dir);

@@ -76,6 +76,13 @@ impl<T> BB<T> {
         }
     }
 
+    pub fn as_mut<'a>(&'a mut self) -> BB<&'a mut T> {
+        BB {
+            x1: &mut self.x1, y1: &mut self.y1,
+            x2: &mut self.x2, y2: &mut self.y2
+        }
+    }
+
     pub fn map<F: FnMut(T) -> U, U>(self, mut f: F) -> BB<U> {
         BB {
             x1: f(self.x1), y1: f(self.y1),
@@ -111,6 +118,9 @@ impl<T> BB<T> {
     pub fn shrink(&self, x: T) -> BB<T> where T: Copy+ Neg<Output=T> + Add<Output=T> + Sub<Output=T>  {
         self.expand(-x)
     }
+
+    pub fn width(self) -> T where T: Sub<Output=T> { self.x2 - self.x1 }
+    pub fn height(self) -> T where T: Sub<Output=T> { self.y2 - self.y1 }
 
     pub fn top_left(self) -> [T; 2] { [self.x1, self.y1] }
     pub fn top_right(self) -> [T; 2] { [self.x2, self.y1] }

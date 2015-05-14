@@ -73,7 +73,7 @@ fn main() {
             let [w, h] = draw_cx.dimensions();
 
             // TODO maybe integrate this with draw_cx?
-            ui::layout::compute(&root, draw_cx.fonts(), w, h);
+            ui::layout::compute(&mut root, draw_cx.fonts(), w, h);
 
             draw_cx.clear(cfg::ColorScheme.background());
             draw_cx.draw(&root);
