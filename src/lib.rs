@@ -1,3 +1,4 @@
+#![recursion_limit="128"]
 #![feature(alloc, box_syntax, catch_panic, core, plugin, rustc_private, slice_patterns)]
 #![plugin(regex_macros)]
 extern crate regex;
