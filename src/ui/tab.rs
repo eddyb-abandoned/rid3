@@ -106,11 +106,11 @@ impl<T> Draw for Set<T> where T: Layout + Tab + Draw {
     }
 }
 
-trait SetDispatch<T, E> {
+trait SetDispatch<E> {
     fn dispatch(&mut self, _ev: &E) -> bool { false }
 }
 
-impl<E, T> Dispatch<E> for Set<T> where Set<T>: SetDispatch<T, E>, T: Dispatch<E> {
+impl<E, T> Dispatch<E> for Set<T> where Set<T>: SetDispatch<E>, T: Dispatch<E> {
     fn dispatch(&mut self, ev: &E) -> bool {
         if self.current < self.tabs.len() {
             self.tabs[self.current].dispatch(ev) | SetDispatch::dispatch(self, ev)
@@ -134,10 +134,10 @@ impl<T> SetDispatch<MouseDown> for Set<T> where T: Layout {
     }
 }
 
-impl<T> SetDispatch<T, MouseUp> for Set<T> {}
-impl<T> SetDispatch<T, MouseMove> for Set<T> {}
-impl<T> SetDispatch<T, MouseScroll> for Set<T> {}
-impl<T> SetDispatch<T, Update> for Set<T> {}
-impl<'a, T> SetDispatch<T, TextInput<'a>> for Set<T> {}
-impl<T> SetDispatch<T, KeyDown> for Set<T> {}
-impl<T> SetDispatch<T, KeyUp> for Set<T> {}
+impl<T> SetDispatch<MouseUp> for Set<T> {}
+impl<T> SetDispatch<MouseMove> for Set<T> {}
+impl<T> SetDispatch<MouseScroll> for Set<T> {}
+impl<T> SetDispatch<Update> for Set<T> {}
+impl<'a, T> SetDispatch<TextInput<'a>> for Set<T> {}
+impl<T> SetDispatch<KeyDown> for Set<T> {}
+impl<T> SetDispatch<KeyUp> for Set<T> {}
