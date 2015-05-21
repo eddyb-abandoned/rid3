@@ -1,5 +1,4 @@
 use std::borrow::ToOwned;
-use std::cell::Cell;
 use std::cmp::{min, max, Ordering};
 use std::default::Default;
 use std::fs;
@@ -28,7 +27,7 @@ pub struct Editor {
     bb: BB<Px>,
     font: text::Mono,
     font_bold: text::MonoBold,
-    font_metrics: Cell<GlyphMetrics>,
+    font_metrics: GlyphMetrics,
     over: bool,
     down: bool,
 
@@ -156,7 +155,7 @@ impl Editor {
             bb: BB::default(),
             font: text::Mono,
             font_bold: text::MonoBold,
-            font_metrics: Cell::new(GlyphMetrics::default()),
+            font_metrics: GlyphMetrics::default(),
             over: false,
             down: false,
             scroll_start: 0,
@@ -310,7 +309,7 @@ impl Editor {
     }
 
     fn pos_to_caret(&self, [x, y]: [Px; 2]) -> Option<Caret> {
-        let metrics = self.font_metrics.get();
+        let metrics = self.font_metrics;
         if metrics.width == 0.0 {
             return None;
         }
@@ -421,7 +420,7 @@ impl Editor {
         if k.row < self.scroll_start {
             self.scroll_start = k.row;
         } else {
-            let metrics = self.font_metrics.get();
+            let metrics = self.font_metrics;
             let h = self.bb.height();
             if metrics.height != 0.0 && h > 0.0 {
                 let rows = (h / metrics.height) as usize;
@@ -589,6 +588,9 @@ impl Editor {
 impl Layout for Editor {
     fn bb(&self) -> BB<Px> { self.bb }
     fn collect<'a>(&'a mut self, cx: &mut CollectCx<'a>) -> CollectBB<'a> {
+        if self.font_metrics.width == 0.0 {
+            self.font_metrics = cx.fonts().metrics(self.font);
+        }
         cx.area(&mut self.bb, "<editor>")
     }
 }
@@ -605,11 +607,8 @@ impl tab::Tab for Editor {
 
 impl Draw for Editor {
     fn draw(&self, cx: &mut DrawCx) {
-        let mut metrics = self.font_metrics.get();
-        if metrics.width == 0.0 {
-            metrics = cx.fonts().metrics(self.font);
-            self.font_metrics.set(metrics);
-        }
+        let metrics = self.font_metrics;
+        assert!(metrics.width != 0.0);
 
         if self.over {
             cx.cursor(MouseCursor::Text);
@@ -823,7 +822,7 @@ impl Dispatch<MouseMove> for Editor {
             }
 
             let mut k = k;
-            k.col = ((ev.x - self.bb.x1) / self.font_metrics.get().width) as usize;
+            k.col = ((ev.x - self.bb.x1) / self.font_metrics.width) as usize;
             let over_caret = self.selection_start == k && self.caret == k;
             if !self.down && !(self.hover.is_none() && over_caret) {
                 if self.hover.map(|(k, _)| k) != Some(k) {
@@ -843,7 +842,7 @@ impl Dispatch<MouseMove> for Editor {
 
 impl Dispatch<MouseScroll> for Editor {
     fn dispatch(&mut self, ev: &MouseScroll) -> bool {
-        let metrics = self.font_metrics.get();
+        let metrics = self.font_metrics;
         if metrics.width == 0.0 {
             return false;
         }

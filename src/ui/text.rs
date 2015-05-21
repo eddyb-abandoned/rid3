@@ -1,4 +1,3 @@
-use std::cell::Cell;
 use std::default::Default;
 
 use glyph::{FontSize, Glyph, GlyphMetrics, GlyphCache};
@@ -52,7 +51,7 @@ impl FontFaces {
 pub struct Label<F=Regular> {
     bb: BB<Px>,
     font: F,
-    pub color: Cell<Color>,
+    pub color: Color,
     pub text: &'static str
 }
 
@@ -61,7 +60,7 @@ impl<F> Label<F> where F: Default {
         Label {
             bb: BB::default(),
             font: F::default(),
-            color: Cell::new(color),
+            color: color,
             text: text
         }
     }
@@ -83,6 +82,6 @@ impl<F> Layout for Label<F> where F: FontFace {
 
 impl<F> Draw for Label<F> where F: FontFace {
     fn draw(&self, cx: &mut DrawCx) {
-        cx.text(self.font, self.bb.top_left(), self.color.get(), self.text);
+        cx.text(self.font, self.bb.top_left(), self.color, self.text);
     }
 }
