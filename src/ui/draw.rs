@@ -8,7 +8,7 @@ use ui::color::Color;
 use ui::render::{Renderer, Surface, Buffer, XYAndUV};
 use ui::text::{FontFace, FontFaces};
 
-pub use glutin::MouseCursor;
+pub use glium::glutin::MouseCursor;
 
 pub trait Draw {
     fn draw(&self, cx: &mut DrawCx);
@@ -94,7 +94,7 @@ impl<'a> DrawCx<'a> {
 
     // TODO make DrawCx linear to ensure this method gets called.
     pub fn finish(self) {
-        self.surface.finish();
+        self.surface.finish().unwrap();
     }
 
     pub fn fill(&mut self, bb: BB<Px>, color: Color/*, corner_radius: Px*/) {

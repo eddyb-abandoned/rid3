@@ -1,18 +1,13 @@
-#![feature(collections_drain, slice_patterns)]
+#![feature(drain, slice_patterns)]
 
-extern crate piston;
-extern crate glutin_window;
+extern crate glium;
+use glium::DisplayBuild;
+
 extern crate fps_counter;
+extern crate time;
 
 use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
-use std::rc::Rc;
-
-use piston::event::*;
-use piston::input::{Button, MouseButton};
-use piston::window::{WindowSettings, Size};
-use r3::window::GliumWindow;
-use glutin_window::{GlutinWindow, OpenGL};
 
 #[macro_use]
 extern crate r3;
@@ -29,19 +24,16 @@ use ui::text::FontFaces;
 fn main() {
     r3::ide::rustc::init_env();
 
-    let ref window = Rc::new(RefCell::new(GlutinWindow::new(
-        OpenGL::_2_1,
-        WindowSettings::new(
-            "rid3".to_string(),
-            Size { width: 800, height: 600 }
-        ).exit_on_esc(false)
-    )));
-    let glium_window = Rc::new(GliumWindow::new(window).unwrap());
+    let display = glium::glutin::WindowBuilder::new()
+        .with_dimensions(800, 600)
+        .with_title(String::from("rid3"))
+        .build_glium()
+        .unwrap();
 
-    let renderer = &mut ui::render::Renderer::new(&glium_window, FontFaces {
-        regular: GlyphCache::from_data(include_bytes!("../../assets/NotoSans/NotoSans-Regular.ttf"), glium_window.clone()).unwrap(),
-        mono: GlyphCache::from_data(include_bytes!("../../assets/Hasklig/Hasklig-Regular.otf"), glium_window.clone()).unwrap(),
-        mono_bold: GlyphCache::from_data(include_bytes!("../../assets/Hasklig/Hasklig-Bold.otf"), glium_window.clone()).unwrap()
+    let renderer = &mut ui::render::Renderer::new(&display, FontFaces {
+        regular: GlyphCache::from_data(include_bytes!("../../assets/NotoSans/NotoSans-Regular.ttf"), display.clone()).unwrap(),
+        mono: GlyphCache::from_data(include_bytes!("../../assets/Hasklig/Hasklig-Regular.otf"), display.clone()).unwrap(),
+        mono_bold: GlyphCache::from_data(include_bytes!("../../assets/Hasklig/Hasklig-Bold.otf"), display.clone()).unwrap()
     });
 
     let open_queue = RefCell::new(std::env::args().skip(1).map(PathBuf::from).collect::<Vec<_>>());
@@ -63,75 +55,51 @@ fn main() {
     let mut root = flow![down: tool_bar, ui::tab::Set::<ui::editor::Editor>::new()];
 
     let (mut x, mut y) = (0.0, 0.0);
+    let mut last_update = time::precise_time_ns();
     let mut cursor = ui::draw::MouseCursor::Default;
-    let mut dirty = true;
-
     let mut fps_counter = fps_counter::FPSCounter::new();
-    for e in window.events().swap_buffers(false) {
-        if let (true, Some(_)) = (dirty, e.render_args()) {
-            let mut draw_cx = DrawCx::new(renderer, glium_window.draw());
-            let [w, h] = draw_cx.dimensions();
+    'main: loop {
+        use glium::glutin::Event as E;
+        use glium::glutin::{ElementState, MouseButton, MouseScrollDelta};
 
-            // TODO maybe integrate this with draw_cx?
-            ui::layout::compute(&mut root, draw_cx.fonts(), w, h);
-
-            draw_cx.clear(cfg::ColorScheme.background());
-            draw_cx.draw(&root);
-
-            let new_cursor = draw_cx.get_cursor();
-            draw_cx.finish();
-
-            if (new_cursor as usize) != (cursor as usize) {
-                if !cfg!(windows) {
-                    window.borrow_mut().window.set_cursor(new_cursor);
+        let mut dirty = true;
+        for event in display.poll_events() {
+            dirty |= match event {
+                E::KeyboardInput(ElementState::Pressed, _, Some(key)) => {
+                    root.dispatch(&ui::event::KeyDown(key))
                 }
-                cursor = new_cursor;
+                E::KeyboardInput(ElementState::Released, _, Some(key)) => {
+                    root.dispatch(&ui::event::KeyUp(key))
+                }
+                E::MouseInput(ElementState::Pressed, MouseButton::Left) => {
+                    root.dispatch(&ui::event::MouseDown::new(x, y))
+                }
+                E::MouseInput(ElementState::Released, MouseButton::Left) => {
+                    root.dispatch(&ui::event::MouseUp::new(x, y))
+                }
+                E::MouseMoved((nx, ny)) => {
+                    x = nx as Px;
+                    y = ny as Px;
+                    root.dispatch(&ui::event::MouseMove::new(x, y))
+                }
+                // FIXME Convert lines into pixels, or vice-versa.
+                E::MouseWheel(MouseScrollDelta::LineDelta(dx, dy)) |
+                E::MouseWheel(MouseScrollDelta::PixelDelta(dx, dy)) => {
+                    root.dispatch(&ui::event::MouseScroll::with(x, y,
+                        ui::event::mouse::Scroll([dx as Px, dy as Px])))
+                }
+                E::ReceivedCharacter(c) => {
+                    root.dispatch(&ui::event::TextInput(c))
+                }
+                E::Resized(..) => true,
+                E::Closed => break 'main,
+                _ => false
             }
-
-            let fps = fps_counter.tick();
-            let tab_title = root.kids.1.current().map(|tab| tab.title());
-            let title = format!("rid3: {} @ {}FPS", tab_title.as_ref().map_or("", |s| &s[..]), fps);
-            window.borrow_mut().window.set_title(&title);
-
-            dirty = false;
         }
 
-        if let Some(Button::Mouse(MouseButton::Left)) = e.press_args() {
-            dirty |= root.dispatch(&ui::event::MouseDown::new(x, y));
-        }
-
-        if let Some(Button::Keyboard(key)) = e.press_args() {
-            dirty |= root.dispatch(&ui::event::KeyDown(key));
-        }
-
-        if let Some(Button::Mouse(MouseButton::Left)) = e.release_args() {
-            dirty |= root.dispatch(&ui::event::MouseUp::new(x, y));
-        }
-
-        if let Some(Button::Keyboard(key)) = e.release_args() {
-            dirty |= root.dispatch(&ui::event::KeyUp(key));
-        }
-
-        if let Some([nx, ny]) = e.mouse_cursor_args() {
-            x = nx as Px;
-            y = ny as Px;
-            dirty |= root.dispatch(&ui::event::MouseMove::new(x, y));
-        }
-
-        if let Some([dx, dy]) = e.mouse_scroll_args() {
-            dirty |= root.dispatch(&ui::event::MouseScroll::with(x, y,
-                ui::event::mouse::Scroll([dx as Px, dy as Px])));
-        }
-
-        if let Some(args) = e.update_args() {
-            dirty |= root.dispatch(&ui::event::Update(args.dt as f32));
-        }
-
-        if let Some(_) = e.resize_args() {
-            dirty = true;
-        }
-
-        e.text(|s| dirty |= root.dispatch(&ui::event::TextInput(s)));
+        let current = time::precise_time_ns();
+        dirty |= root.dispatch(&ui::event::Update((current - last_update) as f32 / 1e9));
+        last_update = current;
 
         if save_current.get() {
             root.kids.1.current_mut().map(|e| e.save());
@@ -170,6 +138,37 @@ fn main() {
                 root.kids.1.add(ui::editor::Editor::open(file));
                 dirty = true;
             }
+        }
+
+        if dirty {
+            let mut draw_cx = DrawCx::new(renderer, display.draw());
+            let [w, h] = draw_cx.dimensions();
+
+            // TODO maybe integrate this with draw_cx?
+            ui::layout::compute(&mut root, draw_cx.fonts(), w, h);
+
+            draw_cx.clear(cfg::ColorScheme.background());
+            draw_cx.draw(&root);
+
+            let new_cursor = draw_cx.get_cursor();
+            draw_cx.finish();
+
+            if (new_cursor as usize) != (cursor as usize) {
+                if !cfg!(windows) {
+                    display.get_window().map(|w| w.set_cursor(new_cursor));
+                }
+                cursor = new_cursor;
+            }
+
+            let fps = fps_counter.tick();
+            let tab_title = root.kids.1.current().map(|tab| tab.title());
+            let title = format!("rid3: {} @ {}FPS", tab_title.as_ref().map_or("", |s| &s[..]), fps);
+            display.get_window().map(|w| w.set_title(&title));
+
+            display.swap_buffers().unwrap();
+        } else {
+            // Sleep for half a frame (assuming 60FPS).
+            std::thread::sleep_ms(1000 / 120);
         }
     }
 }

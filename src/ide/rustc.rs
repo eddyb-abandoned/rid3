@@ -4,14 +4,13 @@ extern crate rustc_driver;
 extern crate rustc_resolve as resolve;
 extern crate rustc_typeck as typeck;
 
-use self::syntax::{ast_map, codemap, diagnostic};
+use self::syntax::{codemap, diagnostic};
 pub use self::syntax::diagnostic::Level;
-use self::syntax::ast_map::NodePrinter;
 use self::syntax::print::pprust;
+use self::rustc::ast_map::{self, NodePrinter};
 use self::rustc::session::{self, config};
 use self::rustc::metadata::creader::CrateReader;
 use self::rustc::middle::{self, stability, ty};
-use self::rustc::util::ppaux::UserString;
 use self::rustc_driver::driver;
 
 use std::env;
@@ -161,8 +160,8 @@ fn rustc_thread(input: String, mut lifeline: Arc<()>, rx: Receiver<Req>, tx: Sen
     };
 
     let codemap = codemap::CodeMap::new();
-    let diagnostic_handler = diagnostic::mk_handler(true, Box::new(emitter));
-    let span_diagnostic_handler = diagnostic::mk_span_handler(diagnostic_handler, codemap);
+    let diagnostic_handler = diagnostic::Handler::with_emitter(true, Box::new(emitter));
+    let span_diagnostic_handler = diagnostic::SpanHandler::new(diagnostic_handler, codemap);
 
     let sess = session::build_session_(sessopts,
                                        None,
@@ -196,8 +195,6 @@ fn rustc_thread(input: String, mut lifeline: Arc<()>, rx: Receiver<Req>, tx: Sen
         ..
     } = resolve::resolve_crate(&sess,
                                &ast_map,
-                               &lang_items,
-                               krate,
                                resolve::MakeGlobMap::No);
 
     // Discard MTWT tables that aren't required past resolution.
@@ -214,72 +211,73 @@ fn rustc_thread(input: String, mut lifeline: Arc<()>, rx: Receiver<Req>, tx: Sen
     //middle::check_static_recursion::check_crate(&sess, krate, &def_map, &ast_map);
 
     still_alive!();
-    let tcx = &ty::mk_ctxt(sess,
-                           &arenas,
-                           def_map,
-                           named_region_map,
-                           ast_map,
-                           freevars,
-                           region_map,
-                           lang_items,
-                           stability::Index::new(krate));
-    typeck::check_crate(tcx, trait_map);
+    ty::ctxt::create_and_enter(sess,
+                               &arenas,
+                               def_map,
+                               named_region_map,
+                               ast_map,
+                               freevars,
+                               region_map,
+                               lang_items,
+                               stability::Index::new(krate), |tcx| {
+        typeck::check_crate(tcx, trait_map);
 
-    let _ = tx.send(Res::Done);
+        let _ = tx.send(Res::Done);
 
-    for req in rx.iter() {
-        still_alive!();
-        match req {
-            Req::TypesAtOffset(offset, line) => {
-                let mut out = vec![];
-                for (&id, ty) in tcx.node_types().iter() {
-                    let node =  if let Some(node) = tcx.map.find(id) {
-                        node
-                    } else {
-                        continue;
-                    };
-                    // Avoid statements, they're always ().
-                    if let ast_map::NodeStmt(_) = node {
-                        continue;
-                    }
-                    if let Some(sp) = tcx.map.opt_span(id) {
-                        /*
-                        // Avoid peeking at macro expansions.
-                        if sp.expn_id != codemap::NO_EXPANSION {
+        for req in rx.iter() {
+            still_alive!();
+            match req {
+                Req::TypesAtOffset(offset, line) => {
+                    let mut out = vec![];
+                    for (&id, ty) in tcx.node_types().iter() {
+                        let node =  if let Some(node) = tcx.map.find(id) {
+                            node
+                        } else {
                             continue;
-                        }*/
+                        };
+                        // Avoid statements, they're always ().
+                        if let ast_map::NodeStmt(_) = node {
+                            continue;
+                        }
+                        if let Some(sp) = tcx.map.opt_span(id) {
+                            /*
+                            // Avoid peeking at macro expansions.
+                            if sp.expn_id != codemap::NO_EXPANSION {
+                                continue;
+                            }*/
 
-                        let (lo, hi) = (sp.lo.0 as usize, sp.hi.0 as usize);
-                        if line.start <= lo && lo <= offset && offset <= hi && hi <= line.end {
-                            match node {
-                                // These cannot be reliably printed.
-                                ast_map::NodeLocal(_) | ast_map::NodeArg(_) | ast_map::NodeStructCtor(_) => {}
-                                // There is an associated NodeExpr(ExprBlock) where this actually matters.
-                                ast_map::NodeBlock(_) => continue,
-                                _ => {
-                                    let node_string = pprust::to_string(|s| s.print_node(&node));
-                                    let span_string = tcx.sess.codemap().span_to_snippet(sp).unwrap();
-                                    let is_macro = regex!(r"^\w+\s*!\s*[\(\[\{]").is_match(&span_string);
-                                    if !is_macro && node_string.replace(" ", "") != span_string.replace(" ", "") {
-                                        continue;
+                            let (lo, hi) = (sp.lo.0 as usize, sp.hi.0 as usize);
+                            if line.start <= lo && lo <= offset && offset <= hi && hi <= line.end {
+                                match node {
+                                    // These cannot be reliably printed.
+                                    ast_map::NodeLocal(_) | ast_map::NodeArg(_) | ast_map::NodeStructCtor(_) => {}
+                                    // There is an associated NodeExpr(ExprBlock) where this actually matters.
+                                    ast_map::NodeBlock(_) => continue,
+                                    _ => {
+                                        let node_string = pprust::to_string(|s| s.print_node(&node));
+                                        let span_string = tcx.sess.codemap().span_to_snippet(sp).unwrap();
+                                        let is_macro = regex!(r"^\w+\s*!\s*[\(\[\{]").is_match(&span_string);
+                                        if !is_macro && node_string.replace(" ", "") != span_string.replace(" ", "") {
+                                            continue;
+                                        }
                                     }
                                 }
+                                let clean = regex!(concat![r"\b(",
+                                    "core::(option::Option|result::Result)|",
+                                    "collections::(vec::Vec|string::String)",
+                                r")\b"]);
+                                let ty_string = clean.replace_all(&ty.to_string(), |c: &::regex::Captures| {
+                                    c.at(0).unwrap().split(':').next_back().unwrap().to_owned()
+                                });
+                                out.push((lo-line.start..hi-line.start, ty_string));
                             }
-                            let clean = regex!(concat![r"\b(",
-                                "core::(option::Option|result::Result)|",
-                                "collections::(vec::Vec|string::String)",
-                            r")\b"]);
-                            let ty_string = clean.replace_all(&ty.user_string(tcx), |c: &::regex::Captures| {
-                                c.at(0).unwrap().split(':').next_back().unwrap().to_owned()
-                            });
-                            out.push((lo-line.start..hi-line.start, ty_string));
                         }
                     }
+                    let _ = tx.send(Res::TypesAtOffset(offset, out));
                 }
-                let _ = tx.send(Res::TypesAtOffset(offset, out));
             }
         }
-    }
+    });
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]

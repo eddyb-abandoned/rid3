@@ -1,5 +1,3 @@
-use std::default::Default;
-
 use glyph::{FontSize, Glyph, GlyphMetrics, GlyphCache};
 
 use ui::{BB, Px};

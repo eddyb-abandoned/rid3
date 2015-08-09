@@ -1,9 +1,8 @@
 use std::borrow::ToOwned;
 use std::cmp::{min, max, Ordering};
-use std::default::Default;
 use std::fs;
 use std::io::{self, Read, Write};
-use std::iter::repeat;
+use std::iter::{once, repeat};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::usize;
@@ -495,7 +494,7 @@ impl Editor {
         }
     }
 
-    fn insert(&mut self, data: &str) {
+    fn insert<C: Iterator<Item=char>>(&mut self, chars: C) {
         let (s1, s2) = (self.selection_start, self.caret);
         let (s1, s2) = (min(s1, s2), max(s1, s2));
 
@@ -504,7 +503,7 @@ impl Editor {
         }
 
         let mut k = s1;
-        for c in data.chars() {
+        for c in chars {
             match c {
                 '\n' => {
                     let new_line = Line::new(self.lines[k.row].data[k.offset..].to_owned());
@@ -540,8 +539,6 @@ impl Editor {
         dirty |= self.hover.take().is_some();
 
         match key {
-            Key::Return => self.insert("\n"),
-            Key::Tab => self.insert("\t"),
             Key::Delete => {
                 if s1 == s2 {
                     s2 = self.advance_caret(s1, Dir::Right);
@@ -550,7 +547,7 @@ impl Editor {
                 self.update_hl(s1.row..s1.row+1, true);
                 self.move_to(s1, false);
             }
-            Key::Backspace => {
+            Key::Back => {
                 if s1 == s2 {
                     s1 = self.advance_caret(s2, Dir::Left);
                 }
@@ -959,13 +956,17 @@ impl Dispatch<Update> for Editor {
     }
 }
 
-impl<'a> Dispatch<TextInput<'a>> for Editor {
+impl Dispatch<TextInput> for Editor {
     fn dispatch(&mut self, ev: &TextInput) -> bool {
         let mut dirty = false;
 
-        if !ev.0.is_empty() {
-            self.insert(ev.0);
-            dirty = true;
+        match ev.0 {
+            // Ignore backspace, escape and delete.
+            '\x08' | '\x1b' | '\x7f' => {}
+            c => {
+                self.insert(once(c));
+                dirty = true;
+            }
         }
 
         dirty |= self.hover.take().is_some();

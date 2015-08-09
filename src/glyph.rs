@@ -7,9 +7,8 @@ use std::path::Path;
 use std::rc::Rc;
 
 use self::ft::render_mode::RenderMode;
-use glium::Texture2d;
+use glium::{Display, Texture2d};
 use image::{Rgba, ImageBuffer};
-use window::GliumWindow as Window;
 
 use ui::Px;
 
@@ -31,13 +30,13 @@ pub struct GlyphMetrics {
 
 pub struct GlyphCache {
     pub face: ft::Face<'static>,
-    facade: Rc<Window>,
+    facade: Display,
     metrics: HashMap<FontSize, GlyphMetrics>,
     data: HashMap<(FontSize, char), Glyph>
 }
 
 impl GlyphCache {
-    pub fn new<P: AsRef<Path>>(font: P, facade: Rc<Window>) -> Result<Self, ft::error::Error> {
+    pub fn new<P: AsRef<Path>>(font: P, facade: Display) -> Result<Self, ft::error::Error> {
         let freetype = try!(ft::Library::init());
         let face = try!(freetype.new_face(font.as_ref(), 0));
         Ok(GlyphCache {
@@ -48,7 +47,7 @@ impl GlyphCache {
         })
     }
 
-    pub fn from_data(font: &'static [u8], facade: Rc<Window>) -> Result<Self, ft::error::Error> {
+    pub fn from_data(font: &'static [u8], facade: Display) -> Result<Self, ft::error::Error> {
         let freetype = try!(ft::Library::init());
         let face = try!(freetype.new_memory_face(font, 0));
         Ok(GlyphCache {
@@ -94,15 +93,15 @@ impl GlyphCache {
                     offset: [x, -y],
                     advance: (glyph.advance_x() >> 16) as Px,
                     texture: Rc::new(if bitmap.width() != 0 {
-                        Texture2d::new(&*self.facade,
+                        Texture2d::new(&self.facade,
                             ImageBuffer::<Rgba<u8>, _>::from_raw(
                                 bitmap.width() as u32, bitmap.rows() as u32,
                                 bitmap.buffer().iter().flat_map(|&x| vec![255, 255, 255, x].into_iter()).collect::<Vec<_>>()
                             ).expect("failed to create glyph texture")
                         )
                     } else {
-                        Texture2d::empty(&*self.facade, 1, 1)
-                    })
+                        Texture2d::empty(&self.facade, 1, 1)
+                    }.unwrap())
                 })
             }
         }

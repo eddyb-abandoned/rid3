@@ -1,12 +1,10 @@
-use std::default::Default;
 use std::f32::consts::FRAC_PI_2 as QUARTER_TAU;
 use std::ops::{Add, Sub, Mul, Neg};
 
-use glium::{self, Texture2d, Program, VertexBuffer};
+use glium::{self, Display, Texture2d, Program, VertexBuffer};
 use glium::{DrawParameters, BlendingFunction, LinearBlendingFactor};
 use glium::Surface as SurfaceTrait;
 use glium::index::{NoIndices, PrimitiveType};
-use window::GliumWindow as Window;
 
 use ui::{BB, Px};
 use ui::color::Color;
@@ -49,13 +47,13 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    pub fn new(window: &Window, fonts: FontFaces) -> Renderer {
+    pub fn new(facade: &Display, fonts: FontFaces) -> Renderer {
         Renderer {
-            data: box() ([VertexXY { xy: [0.0, 0.0] }; VERTEX_COUNT],
-                         [VertexUV { uv: [0.0, 0.0] }; VERTEX_COUNT]),
-            xy_buffer: VertexBuffer::empty_dynamic(window, VERTEX_COUNT),
-            uv_buffer: VertexBuffer::empty_dynamic(window, VERTEX_COUNT),
-            shader_color: Program::from_source(window, "
+            data: box { ([VertexXY { xy: [0.0, 0.0] }; VERTEX_COUNT],
+                         [VertexUV { uv: [0.0, 0.0] }; VERTEX_COUNT]) },
+            xy_buffer: VertexBuffer::empty_dynamic(facade, VERTEX_COUNT).unwrap(),
+            uv_buffer: VertexBuffer::empty_dynamic(facade, VERTEX_COUNT).unwrap(),
+            shader_color: Program::from_source(facade, "
                 #version 120
                 uniform vec4 color;
                 uniform vec2 scale;
@@ -69,7 +67,7 @@ impl Renderer {
                     gl_FragColor = color;
                 }",
                 None).unwrap(),
-            shader_texture: Program::from_source(window, "
+            shader_texture: Program::from_source(facade, "
                 #version 120
                 uniform sampler2D s_texture;
                 uniform vec4 color;

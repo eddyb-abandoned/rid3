@@ -1,5 +1,3 @@
-use std::default::Default;
-
 use cfg::ColorScheme;
 
 use ui::{BB, Px, dir};
@@ -116,6 +114,6 @@ impl Dispatch<MouseMove> for Button {
 
 impl Dispatch<MouseScroll> for Button {}
 impl Dispatch<Update> for Button {}
-impl<'a> Dispatch<TextInput<'a>> for Button {}
+impl Dispatch<TextInput> for Button {}
 impl Dispatch<KeyDown> for Button {}
 impl Dispatch<KeyUp> for Button {}

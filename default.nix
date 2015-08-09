@@ -4,7 +4,7 @@ let
    r3Env = pkgs.stdenv.mkDerivation rec {
      name = "r3-env";
      buildInputs = with pkgs; with pkgs.xlibs; [
-        stdenv
+        stdenv gcc5
         pkgconfig
 
         # glfw deps

@@ -138,6 +138,6 @@ impl<T> SetDispatch<MouseUp> for Set<T> {}
 impl<T> SetDispatch<MouseMove> for Set<T> {}
 impl<T> SetDispatch<MouseScroll> for Set<T> {}
 impl<T> SetDispatch<Update> for Set<T> {}
-impl<'a, T> SetDispatch<TextInput<'a>> for Set<T> {}
+impl<T> SetDispatch<TextInput> for Set<T> {}
 impl<T> SetDispatch<KeyDown> for Set<T> {}
 impl<T> SetDispatch<KeyUp> for Set<T> {}

@@ -1,6 +1,4 @@
-use std::default::Default;
-
-pub use piston::input::keyboard::Key;
+pub use glium::glutin::VirtualKeyCode as Key;
 
 use ui::Px;
 
@@ -68,6 +66,6 @@ impl MouseScroll {
 pub struct KeyDown(pub Key);
 pub struct KeyUp(pub Key);
 
-pub struct TextInput<'a>(pub &'a str);
+pub struct TextInput(pub char);
 
 pub struct Update(pub f32);
