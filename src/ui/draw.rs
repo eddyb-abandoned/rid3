@@ -11,7 +11,7 @@ use ui::text::{FontFace, FontFaces};
 pub use glium::glutin::MouseCursor;
 
 pub trait Draw {
-    fn draw(&self, cx: &mut DrawCx);
+    fn draw(&self, _cx: &mut DrawCx) {}
 }
 
 impl<A, B> Draw for (A, B) where

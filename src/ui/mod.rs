@@ -50,6 +50,7 @@ pub mod menu;
 pub mod tool;
 pub mod tab;
 
+pub mod empty;
 pub mod dialog;
 pub mod editor;
 
