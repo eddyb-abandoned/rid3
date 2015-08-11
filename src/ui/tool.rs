@@ -106,7 +106,7 @@ impl<F> Dispatch<MouseDown> for Button<F> {
     }
 }
 
-impl<F> Dispatch<MouseUp> for Button<F> where F: Fn() {
+impl<F> Dispatch<MouseUp> for Button<F> where F: FnMut() {
     fn dispatch(&mut self, ev: &MouseUp) -> bool {
         if self.down {
             self.down = false;
