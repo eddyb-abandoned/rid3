@@ -164,8 +164,6 @@ fn main() {
             let tab_title = root.kids.1.current().map(|tab| tab.title());
             let title = format!("rid3: {} @ {}FPS", tab_title.as_ref().map_or("", |s| &s[..]), fps);
             display.get_window().map(|w| w.set_title(&title));
-
-            display.swap_buffers().unwrap();
         } else {
             // Sleep for half a frame (assuming 60FPS).
             std::thread::sleep_ms(1000 / 120);
