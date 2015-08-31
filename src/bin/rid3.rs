@@ -55,6 +55,7 @@ fn main() {
     let mut root = flow![down: tool_bar, ui::tab::Set::<ui::editor::Editor>::new()];
 
     let (mut x, mut y) = (0.0, 0.0);
+    let mut key_tracker = ui::event::KeyTracker::default();
     let mut last_update = time::precise_time_ns();
     let mut cursor = ui::draw::MouseCursor::Default;
     let mut fps_counter = fps_counter::FPSCounter::new();
@@ -66,10 +67,18 @@ fn main() {
         for event in display.poll_events() {
             dirty |= match event {
                 E::KeyboardInput(ElementState::Pressed, _, Some(key)) => {
-                    root.dispatch(&ui::event::KeyDown(key))
+                    dirty |= root.dispatch(&ui::event::KeyDown(key));
+                    for e in key_tracker.down(key) {
+                        dirty |= root.dispatch(&e);
+                    }
+                    false
                 }
                 E::KeyboardInput(ElementState::Released, _, Some(key)) => {
-                    root.dispatch(&ui::event::KeyUp(key))
+                    dirty |= root.dispatch(&ui::event::KeyUp(key));
+                    for e in key_tracker.up(key) {
+                        dirty |= root.dispatch(&e);
+                    }
+                    false
                 }
                 E::MouseInput(ElementState::Pressed, MouseButton::Left) => {
                     root.dispatch(&ui::event::MouseDown::new(x, y))
@@ -98,7 +107,11 @@ fn main() {
         }
 
         let current = time::precise_time_ns();
-        dirty |= root.dispatch(&ui::event::Update((current - last_update) as f32 / 1e9));
+        let dt = (current - last_update) as f32 / 1e9;
+        dirty |= root.dispatch(&ui::event::Update(dt));
+        for e in key_tracker.update(dt) {
+            dirty |= root.dispatch(&e);
+        }
         last_update = current;
 
         if save_current.get() {

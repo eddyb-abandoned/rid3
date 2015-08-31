@@ -32,3 +32,4 @@ impl Dispatch<Update> for Empty {}
 impl Dispatch<TextInput> for Empty {}
 impl Dispatch<KeyDown> for Empty {}
 impl Dispatch<KeyUp> for Empty {}
+impl Dispatch<KeyPress> for Empty {}

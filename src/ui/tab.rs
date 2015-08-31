@@ -141,3 +141,4 @@ impl<T> SetDispatch<Update> for Set<T> {}
 impl<T> SetDispatch<TextInput> for Set<T> {}
 impl<T> SetDispatch<KeyDown> for Set<T> {}
 impl<T> SetDispatch<KeyUp> for Set<T> {}
+impl<T> SetDispatch<KeyPress> for Set<T> {}

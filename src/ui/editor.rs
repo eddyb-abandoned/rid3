@@ -32,8 +32,6 @@ pub struct Editor {
 
     // Caret is visible between [0, 0.5) and hidden between [0.5, 1).
     blink_phase: f32,
-    // Key and delay until the next repeat.
-    held_key: Option<(Key, f32)>,
 
     scroll_start: usize,
 
@@ -160,7 +158,6 @@ impl Editor {
             scroll_start: 0,
 
             blink_phase: 0.0,
-            held_key: None,
 
             selection_start: caret,
             caret: caret,
@@ -528,58 +525,6 @@ impl Editor {
         self.update_hl(s1.row..k.row+1, true);
         self.move_to(k, false);
     }
-
-    fn press(&mut self, key: Key) -> bool {
-        let (s1, s2) = (self.selection_start, self.caret);
-        let mut k = s2;
-        let (mut s1, mut s2) = (min(s1, s2), max(s1, s2));
-
-        let mut dirty = false;
-
-        dirty |= self.hover.take().is_some();
-
-        match key {
-            Key::Delete => {
-                if s1 == s2 {
-                    s2 = self.advance_caret(s1, Dir::Right);
-                }
-                self.remove(s1..s2);
-                self.update_hl(s1.row..s1.row+1, true);
-                self.move_to(s1, false);
-            }
-            Key::Back => {
-                if s1 == s2 {
-                    s1 = self.advance_caret(s2, Dir::Left);
-                }
-                self.remove(s1..s2);
-                self.update_hl(s1.row..s1.row+1, true);
-                self.move_to(s1, false);
-            }
-            // TODO shift support.
-            Key::Left => {
-                k = self.advance_caret(k, Dir::Left);
-                self.move_to(k, false);
-            }
-            Key::Right => {
-                k = self.advance_caret(k, Dir::Right);
-                self.move_to(k, false);
-            }
-            Key::Down => {
-                k.col = self.vertical_col;
-                let k2 = self.advance_caret(k, Dir::Down);
-                self.move_to(k2, false);
-                self.vertical_col = k.col;
-            }
-            Key::Up => {
-                k.col = self.vertical_col;
-                let k2 = self.advance_caret(k, Dir::Up);
-                self.move_to(k2, false);
-                self.vertical_col = k.col;
-            }
-            _ => return dirty
-        }
-        true
-    }
 }
 
 impl Layout for Editor {
@@ -868,8 +813,6 @@ impl Dispatch<MouseScroll> for Editor {
 }
 
 const BLINK_SPACING: f32 = 0.5;
-const KEY_REPEAT_DELAY: f32 = 0.660;
-const KEY_REPEAT_SPACING: f32 = 1.0 / 25.0;
 const HOVER_DELAY: f32 = 1.0;
 
 impl Dispatch<Update> for Editor {
@@ -879,15 +822,6 @@ impl Dispatch<Update> for Editor {
         let blink = (self.blink_phase + dt) % (BLINK_SPACING * 2.0);
         dirty |= (blink >= BLINK_SPACING) != (self.blink_phase >= BLINK_SPACING);
         self.blink_phase = blink;
-
-        if let Some((key, d)) = self.held_key {
-            let mut d = d - dt;
-            while d <= 0.0 {
-                dirty |= self.press(key);
-                d += KEY_REPEAT_SPACING;
-            }
-            self.held_key = Some((key, d));
-        }
 
         {
             let ready = if let Some(ref mut new_rustc) = self.new_rustc {
@@ -975,20 +909,58 @@ impl Dispatch<TextInput> for Editor {
     }
 }
 
-impl Dispatch<KeyDown> for Editor {
-    fn dispatch(&mut self, &KeyDown(key): &KeyDown) -> bool {
-        self.held_key = Some((key, KEY_REPEAT_DELAY));
-        self.press(key)
-    }
-}
+impl Dispatch<KeyDown> for Editor {}
+impl Dispatch<KeyUp> for Editor {}
+impl Dispatch<KeyPress> for Editor {
+    fn dispatch(&mut self, &KeyPress(key): &KeyPress) -> bool {
+        let (s1, s2) = (self.selection_start, self.caret);
+        let mut k = s2;
+        let (mut s1, mut s2) = (min(s1, s2), max(s1, s2));
 
-impl Dispatch<KeyUp> for Editor {
-    fn dispatch(&mut self, &KeyUp(key): &KeyUp) -> bool {
-        if let Some((k, _)) = self.held_key {
-            if k == key {
-                self.held_key = None;
+        let mut dirty = false;
+
+        dirty |= self.hover.take().is_some();
+
+        match key {
+            Key::Delete => {
+                if s1 == s2 {
+                    s2 = self.advance_caret(s1, Dir::Right);
+                }
+                self.remove(s1..s2);
+                self.update_hl(s1.row..s1.row+1, true);
+                self.move_to(s1, false);
             }
+            Key::Back => {
+                if s1 == s2 {
+                    s1 = self.advance_caret(s2, Dir::Left);
+                }
+                self.remove(s1..s2);
+                self.update_hl(s1.row..s1.row+1, true);
+                self.move_to(s1, false);
+            }
+            // TODO shift support.
+            Key::Left => {
+                k = self.advance_caret(k, Dir::Left);
+                self.move_to(k, false);
+            }
+            Key::Right => {
+                k = self.advance_caret(k, Dir::Right);
+                self.move_to(k, false);
+            }
+            Key::Down => {
+                k.col = self.vertical_col;
+                let k2 = self.advance_caret(k, Dir::Down);
+                self.move_to(k2, false);
+                self.vertical_col = k.col;
+            }
+            Key::Up => {
+                k.col = self.vertical_col;
+                let k2 = self.advance_caret(k, Dir::Up);
+                self.move_to(k2, false);
+                self.vertical_col = k.col;
+            }
+            _ => return dirty
         }
-        false
+        true
     }
 }

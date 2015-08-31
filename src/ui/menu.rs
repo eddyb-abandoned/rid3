@@ -117,3 +117,4 @@ impl Dispatch<Update> for Button {}
 impl Dispatch<TextInput> for Button {}
 impl Dispatch<KeyDown> for Button {}
 impl Dispatch<KeyUp> for Button {}
+impl Dispatch<KeyPress> for Button {}

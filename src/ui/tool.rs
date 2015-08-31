@@ -132,3 +132,4 @@ impl<F> Dispatch<Update> for Button<F> {}
 impl<F> Dispatch<TextInput> for Button<F> {}
 impl<F> Dispatch<KeyDown> for Button<F> {}
 impl<F> Dispatch<KeyUp> for Button<F> {}
+impl<F> Dispatch<KeyPress> for Button<F> {}
