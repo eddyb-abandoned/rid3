@@ -97,6 +97,12 @@ impl<'a> DrawCx<'a> {
         self.surface.finish().unwrap();
     }
 
+    pub fn line(&mut self, from: [Px; 2], to: [Px; 2], width: Px, color: Color) {
+        self.with_surface(|this| this.renderer.colored(&mut this.surface, color, |buffer| {
+            buffer.line(from, to, width);
+        }));
+    }
+
     pub fn fill(&mut self, bb: BB<Px>, color: Color/*, corner_radius: Px*/) {
         let corner_radius: Px = 0.0;
         self.with_surface(|this| this.renderer.colored(&mut this.surface, color, |buffer| {

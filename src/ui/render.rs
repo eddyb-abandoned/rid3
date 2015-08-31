@@ -1,5 +1,5 @@
 use std::f32::consts::FRAC_PI_2 as QUARTER_TAU;
-use std::ops::{Add, Sub, Mul, Neg};
+use std::ops::{Add, Sub, Mul, Div, Neg};
 
 use glium::{self, Display, Texture2d, Program, VertexBuffer};
 use glium::{DrawParameters, BlendingFunction, LinearBlendingFactor};
@@ -164,7 +164,13 @@ impl Renderer {
 }
 
 pub trait Buffer: Sized {
-    type E: Copy + Neg<Output=Self::E> + Add<Output=Self::E> + Sub<Output=Self::E> + Mul<Px, Output=Self::E>;
+    type E: Copy + Sqrt +
+            Neg<Output=Self::E> +
+            Add<Output=Self::E> +
+            Sub<Output=Self::E> +
+            Mul<Px, Output=Self::E> +
+            Mul<Output=Self::E> +
+            Div<Output=Self::E>;
 
     fn vertex(&mut self, i: usize, vertex: [Self::E; 2]);
     fn flush(&mut self, n: usize, ty: PrimitiveType);
@@ -204,6 +210,23 @@ pub trait Buffer: Sized {
             }
         }
         self.flush(i, PrimitiveType::TriangleStrip);
+    }
+
+    fn line(mut self, from: [Self::E; 2], to: [Self::E; 2], width: Self::E) {
+        let [x1, y1] = from;
+        let [x2, y2] = to;
+        let [lx, ly] = [x2 - x1, y2 - y1];
+        let l = (lx * lx + ly * ly).sqrt();
+        let scale = width * 0.5 / l;
+        // Rotate by 90°.
+        let dx = ly * scale;
+        let dy = lx * -scale;
+        self.filled_polygon([
+            [x1 + dx, y1 + dy],
+            [x1 - dx, y1 - dy],
+            [x2 - dx, y2 - dy],
+            [x2 + dx, y2 + dy]
+        ].iter().cloned());
     }
 
     fn rect(mut self, bb: BB<Self::E>) {
@@ -256,6 +279,16 @@ pub trait Buffer: Sized {
     }
 }
 
+trait Sqrt {
+    fn sqrt(self) -> Self;
+}
+
+impl Sqrt for Px {
+    fn sqrt(self) -> Self {
+        self.sqrt()
+    }
+}
+
 impl<'a, F> Buffer for (&'a mut [VertexXY; VERTEX_COUNT], F)
     where F: FnMut(&[VertexXY], PrimitiveType) {
 
@@ -296,6 +329,23 @@ impl Mul<Px> for XYAndUV {
     type Output = Self;
     fn mul(self, x: Px) -> Self {
         XYAndUV(self.0 * x, self.1 * x)
+    }
+}
+impl Mul for XYAndUV {
+    type Output = Self;
+    fn mul(self, other: Self) -> Self {
+        XYAndUV(self.0 * other.0, self.1 * other.0)
+    }
+}
+impl Div for XYAndUV {
+    type Output = Self;
+    fn div(self, other: Self) -> Self {
+        XYAndUV(self.0 / other.0, self.1 / other.0)
+    }
+}
+impl Sqrt for XYAndUV {
+    fn sqrt(self) -> Self {
+        XYAndUV(self.0.sqrt(), self.1.sqrt())
     }
 }
 impl Neg for XYAndUV { type Output = Self; fn neg(self) -> Self { self * -1.0 } }
