@@ -58,11 +58,11 @@ fn main() {
     let mut last_update = time::precise_time_ns();
     let mut cursor = ui::draw::MouseCursor::Default;
     let mut fps_counter = fps_counter::FPSCounter::new();
+    let mut dirty = true;
     'main: loop {
         use glium::glutin::Event as E;
         use glium::glutin::{ElementState, MouseButton, MouseScrollDelta};
 
-        let mut dirty = true;
         for event in display.poll_events() {
             dirty |= match event {
                 E::KeyboardInput(ElementState::Pressed, _, Some(key)) => {
@@ -164,6 +164,8 @@ fn main() {
             let tab_title = root.kids.1.current().map(|tab| tab.title());
             let title = format!("rid3: {} @ {}FPS", tab_title.as_ref().map_or("", |s| &s[..]), fps);
             display.get_window().map(|w| w.set_title(&title));
+
+            dirty = false;
         } else {
             // Sleep for half a frame (assuming 60FPS).
             std::thread::sleep_ms(1000 / 120);
