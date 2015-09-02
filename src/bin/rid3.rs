@@ -154,7 +154,7 @@ fn main() {
         }
 
         if dirty {
-            let mut draw_cx = DrawCx::new(renderer, display.draw());
+            let mut draw_cx = DrawCx::new(renderer, &display, display.draw());
             let [w, h] = draw_cx.dimensions();
 
             // TODO maybe integrate this with draw_cx?

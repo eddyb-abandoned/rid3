@@ -1,6 +1,7 @@
 use std::f32::consts::FRAC_PI_2 as QUARTER_TAU;
 
-use glium::Texture;
+use glium::texture::{Texture, Texture2d, Texture2dDataSource};
+use glium::Display;
 use glium::Surface as SurfaceTrait;
 
 use ui::{BB, Px};
@@ -25,6 +26,7 @@ impl<A, B> Draw for (A, B) where
 
 pub struct DrawCx<'a> {
     renderer: &'a mut Renderer,
+    facade: &'a Display,
     surface: Surface,
     cursor: MouseCursor,
     overlay_requested: bool,
@@ -33,9 +35,11 @@ pub struct DrawCx<'a> {
 }
 
 impl<'a> DrawCx<'a> {
-    pub fn new(renderer: &'a mut Renderer, surface: Surface) -> DrawCx<'a> {
+    pub fn new(renderer: &'a mut Renderer, facade: &'a Display, surface: Surface)
+               -> DrawCx<'a> {
         DrawCx {
             renderer: renderer,
+            facade: facade,
             surface: surface,
             cursor: MouseCursor::Default,
             overlay_requested: false,
@@ -124,6 +128,16 @@ impl<'a> DrawCx<'a> {
                 buffer.rect_border_round(bb, border_size, resolution, corner_radius);
             }
         }));
+    }
+
+    pub fn textured<'d, D: Texture2dDataSource<'d>>(&mut self, bb: BB<Px>, image: D) {
+        self.with_surface(|this| {
+            let texture = Texture2d::new(this.facade, image).unwrap();
+            let uv = BB::rect(0.0, 1.0, 1.0, -1.0);
+            this.renderer.textured(&mut this.surface, [1.0, 1.0, 1.0, 1.0], &texture, |buffer| {
+                buffer.rect(bb.zip(uv).map(|(a, b)| XYAndUV(a, b)))
+            });
+        });
     }
 
     pub fn text<F: FontFace>(&mut self, font: F, [x, y]: [Px; 2], color: Color, text: &str) {
