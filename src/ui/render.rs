@@ -10,17 +10,6 @@ use ui::{BB, Px};
 use ui::color::Color;
 use ui::text::FontFaces;
 
-#[cfg(not(windows))]
-fn gamma_pre_correct([r, g, b, a]: Color) -> Color {
-    fn ch(x: f32) -> f32 { ((x + 0.055) / 1.055).powf(2.4) }
-    [ch(r), ch(g), ch(b), a]
-}
-
-#[cfg(windows)]
-fn gamma_pre_correct(color: Color) -> Color {
-    color
-}
-
 pub type Surface = glium::Frame;
 
 #[derive(Copy, Clone)]
@@ -53,39 +42,54 @@ impl Renderer {
                          [VertexUV { uv: [0.0, 0.0] }; VERTEX_COUNT]) },
             xy_buffer: VertexBuffer::empty_dynamic(facade, VERTEX_COUNT).unwrap(),
             uv_buffer: VertexBuffer::empty_dynamic(facade, VERTEX_COUNT).unwrap(),
-            shader_color: Program::from_source(facade, "
-                #version 120
-                uniform vec4 color;
-                uniform vec2 scale;
-                attribute vec2 xy;
-                void main() {
-                    gl_Position = vec4(xy * scale + vec2(-1.0, 1.0), 0.0, 1.0);
-                }","
-                #version 120
-                uniform vec4 color;
-                void main() {
-                    gl_FragColor = color;
-                }",
-                None).unwrap(),
-            shader_texture: Program::from_source(facade, "
-                #version 120
-                uniform sampler2D s_texture;
-                uniform vec4 color;
-                uniform vec2 scale;
-                attribute vec2 xy;
-                attribute vec2 uv;
-                varying vec2 v_uv;
-                void main() {
-                    v_uv = uv;
-                    gl_Position = vec4(xy * scale + vec2(-1.0, 1.0), 0.0, 1.0);
-                }","
-                #version 120
-                uniform sampler2D s_texture;
-                uniform vec4 color;
-                varying vec2 v_uv;
-                void main() {
-                    gl_FragColor = texture2D(s_texture, v_uv) * color;
-                }", None).unwrap(),
+            shader_color: program! { facade, 100 => {
+                vertex: "
+                    #version 100
+                    precision mediump float;
+
+                    uniform vec4 color;
+                    uniform vec2 scale;
+                    attribute vec2 xy;
+                    void main() {
+                        gl_Position = vec4(xy * scale + vec2(-1.0, 1.0), 0.0, 1.0);
+                    }",
+                fragment: "
+                    #version 100
+                    precision mediump float;
+
+                    uniform vec4 color;
+                    void main() {
+                        gl_FragColor = color;
+                    }",
+                outputs_srgb: true
+            }}.unwrap(),
+            shader_texture: program! { facade, 100 => {
+                vertex: "
+                    #version 100
+                    precision mediump float;
+
+                    uniform sampler2D s_texture;
+                    uniform vec4 color;
+                    uniform vec2 scale;
+                    attribute vec2 xy;
+                    attribute vec2 uv;
+                    varying vec2 v_uv;
+                    void main() {
+                        v_uv = uv;
+                        gl_Position = vec4(xy * scale + vec2(-1.0, 1.0), 0.0, 1.0);
+                    }",
+                fragment: "
+                    #version 100
+                    precision mediump float;
+
+                    uniform sampler2D s_texture;
+                    uniform vec4 color;
+                    varying vec2 v_uv;
+                    void main() {
+                        gl_FragColor = texture2D(s_texture, v_uv) * color;
+                    }",
+                outputs_srgb: true
+            }}.unwrap(),
             fonts: fonts
         }
     }
@@ -96,15 +100,13 @@ impl Renderer {
         [2.0 / w, -2.0 / h]
     }
 
-    pub fn clear(&mut self, surface: &mut Surface, color: Color) {
-        let [r, g, b, a] = gamma_pre_correct(color);
+    pub fn clear(&mut self, surface: &mut Surface, [r, g, b, a]: Color) {
         surface.clear_color(r, g, b, a);
     }
 
     pub fn colored<F>(&mut self, surface: &mut Surface, color: Color, mut f: F)
         where F: FnMut((&mut [VertexXY; VERTEX_COUNT], &mut FnMut(&[VertexXY], PrimitiveType))) {
 
-        let color = gamma_pre_correct(color);
         let scale = self.scale(surface);
         let xy_buffer = &self.xy_buffer;
         let shader = &self.shader_color;
@@ -133,7 +135,7 @@ impl Renderer {
         where F: FnMut((&mut [VertexXY; VERTEX_COUNT],
                         &mut [VertexUV; VERTEX_COUNT],
                         &mut FnMut(&[VertexXY], &[VertexUV], PrimitiveType))) {
-        let color = gamma_pre_correct(color);
+
         let scale = self.scale(surface);
         let shader = &self.shader_texture;
         let (xy_buffer, uv_buffer) = (&self.xy_buffer, &self.uv_buffer);
