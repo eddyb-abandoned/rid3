@@ -59,6 +59,9 @@ fn main() {
     let mut last_update = time::precise_time_ns();
     let mut cursor = ui::draw::MouseCursor::Default;
     let mut fps_counter = fps_counter::FPSCounter::new();
+
+    // Ready the buffers.
+    display.draw().finish().unwrap();
     let mut dirty = true;
     'main: loop {
         use glium::glutin::Event as E;
