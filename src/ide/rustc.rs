@@ -1,25 +1,29 @@
 extern crate syntax;
 extern crate rustc;
+extern crate rustc_front;
 extern crate rustc_driver;
 extern crate rustc_resolve as resolve;
 extern crate rustc_typeck as typeck;
 
 use self::syntax::{codemap, diagnostic};
 pub use self::syntax::diagnostic::Level;
-use self::syntax::print::pprust;
-use self::rustc::ast_map::{self, NodePrinter};
+use self::rustc::front::map as hir_map;
+use self::rustc::front::map::NodePrinter;
+use self::rustc_front::lowering::lower_crate;
+use self::rustc_front::print::pprust;
 use self::rustc::session::{self, config};
-use self::rustc::metadata::creader::CrateReader;
+use self::rustc::metadata::creader::LocalCrateReader;
 use self::rustc::middle::{self, stability, ty};
 use self::rustc_driver::driver;
 
+//use std::cell::RefCell;
 use std::env;
 use std::collections::HashMap;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::str;
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 use std::sync::mpsc::{channel, Sender, Receiver};
 use std::thread;
 
@@ -148,7 +152,9 @@ impl diagnostic::Emitter for ErrorLogger {
 
 fn rustc_thread(input: String, mut lifeline: Arc<()>, rx: Receiver<Req>, tx: Sender<Res>, emitter: ErrorLogger) {
     macro_rules! still_alive {
-        () => (lifeline = match lifeline.downgrade().upgrade() { Some(x) => x, None => return })
+        () => (lifeline = match Weak::upgrade(&Arc::downgrade(&{lifeline})) {
+                Some(x) => x, None => return
+        })
     }
     let input = config::Input::Str(input);
 
@@ -176,15 +182,18 @@ fn rustc_thread(input: String, mut lifeline: Arc<()>, rx: Receiver<Req>, tx: Sen
     let krate = driver::phase_2_configure_and_expand(&sess, krate, "r3", None)
         .expect("phase_2_configure_and_expand aborted");
 
-    let mut forest = ast_map::Forest::new(krate);
+    still_alive!();
+    let krate = driver::assign_node_ids(&sess, krate);
+
+    let mut hir_forest = hir_map::Forest::new(lower_crate(&krate));
     let arenas = ty::CtxtArenas::new();
 
     still_alive!();
-    let ast_map = driver::assign_node_ids_and_map(&sess, &mut forest);
-    let krate = ast_map.krate();
+    let hir_map = hir_map::map_crate(&mut hir_forest);
+    let krate = hir_map.krate();
 
     still_alive!();
-    CrateReader::new(&sess).read_crates(krate);
+    LocalCrateReader::new(&sess, &hir_map).read_crates(krate);
     let lang_items = middle::lang_items::collect_language_items(krate, &sess);
 
     still_alive!();
@@ -194,7 +203,7 @@ fn rustc_thread(input: String, mut lifeline: Arc<()>, rx: Receiver<Req>, tx: Sen
         trait_map,
         ..
     } = resolve::resolve_crate(&sess,
-                               &ast_map,
+                               &hir_map,
                                resolve::MakeGlobMap::No);
 
     // Discard MTWT tables that aren't required past resolution.
@@ -208,14 +217,14 @@ fn rustc_thread(input: String, mut lifeline: Arc<()>, rx: Receiver<Req>, tx: Sen
 
     //middle::check_loop::check_crate(&sess, krate);
 
-    //middle::check_static_recursion::check_crate(&sess, krate, &def_map, &ast_map);
+    //middle::check_static_recursion::check_crate(&sess, krate, &def_map, &hir_map);
 
     still_alive!();
     ty::ctxt::create_and_enter(sess,
                                &arenas,
                                def_map,
                                named_region_map,
-                               ast_map,
+                               hir_map,
                                freevars,
                                region_map,
                                lang_items,
@@ -236,7 +245,7 @@ fn rustc_thread(input: String, mut lifeline: Arc<()>, rx: Receiver<Req>, tx: Sen
                             continue;
                         };
                         // Avoid statements, they're always ().
-                        if let ast_map::NodeStmt(_) = node {
+                        if let hir_map::NodeStmt(_) = node {
                             continue;
                         }
                         if let Some(sp) = tcx.map.opt_span(id) {
@@ -250,9 +259,9 @@ fn rustc_thread(input: String, mut lifeline: Arc<()>, rx: Receiver<Req>, tx: Sen
                             if line.start <= lo && lo <= offset && offset <= hi && hi <= line.end {
                                 match node {
                                     // These cannot be reliably printed.
-                                    ast_map::NodeLocal(_) | ast_map::NodeArg(_) | ast_map::NodeStructCtor(_) => {}
+                                    hir_map::NodeLocal(_) | hir_map::NodeArg(_) | hir_map::NodeStructCtor(_) => {}
                                     // There is an associated NodeExpr(ExprBlock) where this actually matters.
-                                    ast_map::NodeBlock(_) => continue,
+                                    hir_map::NodeBlock(_) => continue,
                                     _ => {
                                         let node_string = pprust::to_string(|s| s.print_node(&node));
                                         let span_string = tcx.sess.codemap().span_to_snippet(sp).unwrap();
