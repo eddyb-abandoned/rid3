@@ -61,8 +61,25 @@ impl Renderer {
                     void main() {
                         gl_FragColor = color;
                     }",
+                outputs_srgb: false
+            }, 110 => {
+                vertex: "
+                    #version 110
+                    uniform vec4 color;
+                    uniform vec2 scale;
+                    attribute vec2 xy;
+                    void main() {
+                        gl_Position = vec4(xy * scale + vec2(-1.0, 1.0), 0.0, 1.0);
+                    }",
+                fragment: "
+                    #version 110
+                    uniform vec4 color;
+                    void main() {
+                        gl_FragColor = color;
+                    }",
                 outputs_srgb: true
             }}.unwrap(),
+
             shader_texture: program! { facade, 100 => {
                 vertex: "
                     #version 100
@@ -82,6 +99,28 @@ impl Renderer {
                     #version 100
                     precision mediump float;
 
+                    uniform sampler2D s_texture;
+                    uniform vec4 color;
+                    varying vec2 v_uv;
+                    void main() {
+                        gl_FragColor = texture2D(s_texture, v_uv) * color;
+                    }",
+                outputs_srgb: false
+            }, 110 => {
+                vertex: "
+                    #version 110
+                    uniform sampler2D s_texture;
+                    uniform vec4 color;
+                    uniform vec2 scale;
+                    attribute vec2 xy;
+                    attribute vec2 uv;
+                    varying vec2 v_uv;
+                    void main() {
+                        v_uv = uv;
+                        gl_Position = vec4(xy * scale + vec2(-1.0, 1.0), 0.0, 1.0);
+                    }",
+                fragment: "
+                    #version 110
                     uniform sampler2D s_texture;
                     uniform vec4 color;
                     varying vec2 v_uv;
