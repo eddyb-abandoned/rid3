@@ -61,7 +61,7 @@ impl Renderer {
                     void main() {
                         gl_FragColor = color;
                     }",
-                outputs_srgb: false
+                outputs_srgb: true
             }, 110 => {
                 vertex: "
                     #version 110
@@ -105,7 +105,7 @@ impl Renderer {
                     void main() {
                         gl_FragColor = texture2D(s_texture, v_uv) * color;
                     }",
-                outputs_srgb: false
+                outputs_srgb: true
             }, 110 => {
                 vertex: "
                     #version 110
