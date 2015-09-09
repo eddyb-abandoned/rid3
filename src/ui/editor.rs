@@ -769,13 +769,8 @@ impl Dispatch<MouseMove> for Editor {
             if !self.down && !(self.hover.is_none() && over_caret) {
                 if self.hover.map(|(k, _)| k) != Some(k) {
                     self.hover = Some((k, 0.0));
-                    dirty = true;
                 }
-            } else {
-                dirty |= self.hover.take().is_some();
             }
-        } else {
-            dirty |= self.hover.take().is_some();
         }
 
         dirty
@@ -883,7 +878,7 @@ impl Dispatch<Update> for Editor {
                                                   types.as_mut().unwrap_or(&mut vec![]));
             }
             self.rustc.types_at_offset = types;
-            dirty = true;
+            dirty |= !self.overlay.3.is_empty();
         }
 
         dirty
