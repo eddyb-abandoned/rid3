@@ -2,7 +2,7 @@ use std::f32::consts::FRAC_PI_2 as QUARTER_TAU;
 use std::ops::{Add, Sub, Mul, Div, Neg};
 
 use glium::{self, Display, Texture2d, Program, VertexBuffer};
-use glium::{DrawParameters, BlendingFunction, LinearBlendingFactor};
+use glium::{DrawParameters, Blend, BlendingFunction, LinearBlendingFactor};
 use glium::Surface as SurfaceTrait;
 use glium::index::{NoIndices, PrimitiveType};
 
@@ -154,16 +154,21 @@ impl Renderer {
             let xys = xy_buffer.slice(0..xy_data.len()).unwrap();
             xys.write(xy_data);
 
+            let blending_function = BlendingFunction::Addition {
+                source: LinearBlendingFactor::SourceAlpha,
+                destination: LinearBlendingFactor::OneMinusSourceAlpha,
+            };
             surface.draw(xys, &NoIndices(ty), shader,
                 &uniform! {
                     color: color,
                     scale: scale
                 },
                 &DrawParameters {
-                    blending_function: Some(BlendingFunction::Addition {
-                        source: LinearBlendingFactor::SourceAlpha,
-                        destination: LinearBlendingFactor::OneMinusSourceAlpha,
-                    }),
+                    blend: Blend {
+                        color: blending_function,
+                        alpha: blending_function,
+                        constant_value: (1.0, 1.0, 1.0, 1.0),
+                    },
                     .. Default::default()
                 }
             ).unwrap();
@@ -186,6 +191,10 @@ impl Renderer {
             xys.write(xy_data);
             uvs.write(uv_data);
 
+            let blending_function = BlendingFunction::Addition {
+                source: LinearBlendingFactor::SourceAlpha,
+                destination: LinearBlendingFactor::OneMinusSourceAlpha,
+            };
             surface.draw((xys, uvs), &NoIndices(ty), shader,
                 &uniform! {
                     color: color,
@@ -193,10 +202,11 @@ impl Renderer {
                     s_texture: texture
                 },
                 &DrawParameters {
-                    blending_function: Some(BlendingFunction::Addition {
-                        source: LinearBlendingFactor::SourceAlpha,
-                        destination: LinearBlendingFactor::OneMinusSourceAlpha,
-                    }),
+                    blend: Blend {
+                        color: blending_function,
+                        alpha: blending_function,
+                        constant_value: (1.0, 1.0, 1.0, 1.0),
+                    },
                     .. Default::default()
                 },
             ).unwrap();

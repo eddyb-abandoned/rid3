@@ -1,6 +1,5 @@
 #![recursion_limit="128"]
-#![feature(arc_weak, box_syntax, catch_panic, iter_arith)]
-#![feature(plugin, rustc_private, slice_patterns)]
+#![feature(box_syntax, catch_panic, iter_arith, plugin, rustc_private, slice_patterns)]
 #![plugin(regex_macros)]
 
 extern crate arena;
