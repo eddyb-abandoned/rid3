@@ -211,7 +211,7 @@ fn rustc_thread(input: String, mut lifeline: Arc<()>, rx: Receiver<Req>, tx: Sen
     syntax::ext::mtwt::clear_tables();
 
     still_alive!();
-    let named_region_map = middle::resolve_lifetime::krate(&sess, krate, &def_map);
+    let named_region_map = middle::resolve_lifetime::krate(&sess, krate, &def_map.borrow());
 
     still_alive!();
     let region_map = middle::region::resolve_crate(&sess, krate);
