@@ -5,14 +5,14 @@ authors = ["Eduard-Mihai Burtescu <edy.burt@gmail.com>"]
 
 [dependencies]
 regex = "*"
-regex_macros = "*"
+#regex_macros = "*"
 unicode-width = "*"
 time = "*"
 
-image = "*"
+image = "0.4.0"
+glium = "0.11.1"
 freetype-rs = "*"
 fps_counter = "*"
-glium = "*"
 
 [target.i686-pc-windows-gnu.dependencies]
 winapi = "*"

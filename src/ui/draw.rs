@@ -1,6 +1,6 @@
 use std::f32::consts::FRAC_PI_2 as QUARTER_TAU;
 
-use glium::texture::{Texture, Texture2d, Texture2dDataSource};
+use glium::texture::{Texture2d, Texture2dDataSource};
 use glium::Display;
 use glium::Surface as SurfaceTrait;
 

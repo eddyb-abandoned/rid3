@@ -1,6 +1,10 @@
 #![recursion_limit="128"]
 #![feature(box_syntax, catch_panic, iter_arith, plugin, rustc_private, slice_patterns)]
-#![plugin(regex_macros)]
+
+//#![plugin(regex_macros)]
+macro_rules! regex {
+    ($r:expr) => (::regex::Regex::new($r).unwrap())
+}
 
 extern crate arena;
 extern crate regex;

@@ -9,7 +9,7 @@ use self::syntax::{codemap, diagnostic};
 pub use self::syntax::diagnostic::Level;
 use self::rustc::front::map as hir_map;
 use self::rustc::front::map::NodePrinter;
-use self::rustc_front::lowering::lower_crate;
+use self::rustc_front::lowering::{lower_crate, LoweringContext};
 use self::rustc_front::print::pprust;
 use self::rustc::session::{self, config};
 use self::rustc::metadata::creader::LocalCrateReader;
@@ -185,7 +185,8 @@ fn rustc_thread(input: String, mut lifeline: Arc<()>, rx: Receiver<Req>, tx: Sen
     still_alive!();
     let krate = driver::assign_node_ids(&sess, krate);
 
-    let mut hir_forest = hir_map::Forest::new(lower_crate(&krate));
+    let lcx = LoweringContext::new(&sess, Some(&krate));
+    let mut hir_forest = hir_map::Forest::new(lower_crate(&lcx, &krate));
     let arenas = ty::CtxtArenas::new();
 
     still_alive!();
@@ -194,7 +195,7 @@ fn rustc_thread(input: String, mut lifeline: Arc<()>, rx: Receiver<Req>, tx: Sen
 
     still_alive!();
     LocalCrateReader::new(&sess, &hir_map).read_crates(krate);
-    let lang_items = middle::lang_items::collect_language_items(krate, &sess);
+    let lang_items = middle::lang_items::collect_language_items(&sess, &hir_map);
 
     still_alive!();
     let resolve::CrateMap {
@@ -220,7 +221,7 @@ fn rustc_thread(input: String, mut lifeline: Arc<()>, rx: Receiver<Req>, tx: Sen
     //middle::check_static_recursion::check_crate(&sess, krate, &def_map, &hir_map);
 
     still_alive!();
-    ty::ctxt::create_and_enter(sess,
+    ty::ctxt::create_and_enter(&sess,
                                &arenas,
                                def_map,
                                named_region_map,
@@ -229,6 +230,19 @@ fn rustc_thread(input: String, mut lifeline: Arc<()>, rx: Receiver<Req>, tx: Sen
                                region_map,
                                lang_items,
                                stability::Index::new(krate), |tcx| {
+        /*typeck::collect::collect_item_types(tcx);
+        tcx.sess.abort_if_errors();
+
+        still_alive!();
+        typeck::variance::infer_variance(tcx);
+
+        still_alive!();
+        let ccx = typeck::CrateCtxt {
+            trait_map: trait_map,
+            all_traits: RefCell::new(None),
+            tcx: tcx
+        };
+        typeck::coherence::check_coherence(&ccx);*/
         typeck::check_crate(tcx, trait_map);
 
         let _ = tx.send(Res::Done);
@@ -259,7 +273,7 @@ fn rustc_thread(input: String, mut lifeline: Arc<()>, rx: Receiver<Req>, tx: Sen
                             if line.start <= lo && lo <= offset && offset <= hi && hi <= line.end {
                                 match node {
                                     // These cannot be reliably printed.
-                                    hir_map::NodeLocal(_) | hir_map::NodeArg(_) | hir_map::NodeStructCtor(_) => {}
+                                    hir_map::NodeLocal(_) | hir_map::NodeStructCtor(_) => {}
                                     // There is an associated NodeExpr(ExprBlock) where this actually matters.
                                     hir_map::NodeBlock(_) => continue,
                                     _ => {

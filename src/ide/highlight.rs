@@ -56,10 +56,6 @@ impl<'a, I> Rust<'a, I> where I: Iterator<Item=&'a str> {
 macro_rules! rust_ident { () => ("[a-zA-Z_][a-zA-Z_0-9]*") }
 macro_rules! rust_int_suf { () => ("([iu](8|16|32|64)?)?") }
 
-macro_rules! regex {
-    ($r:expr) => (::regex::Regex::new($r).unwrap())
-}
-
 macro_rules! re {
     ($($r:expr),+) => (regex!(concat!("^(?:", $($r,)* ")")))
 }
