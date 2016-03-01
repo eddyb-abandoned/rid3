@@ -27,6 +27,7 @@ pub mod cfg {
 #[macro_use]
 pub mod ui;
 
+#[cfg(feature = "ide")]
 pub mod ide {
     pub mod rustc;
     pub mod highlight;

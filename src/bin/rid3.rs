@@ -21,6 +21,10 @@ use ui::event::Dispatch;
 use ui::tab::Tab;
 use ui::text::FontFaces;
 
+#[cfg(not(feature = "ide"))]
+fn main() { error__please_enable_the_ide_feature_for_rid3 }
+
+#[cfg(feature = "ide")]
 fn main() {
     r3::ide::rustc::init_env();
 

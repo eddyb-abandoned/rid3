@@ -52,6 +52,7 @@ pub mod tab;
 
 pub mod empty;
 pub mod dialog;
+#[cfg(feature = "ide")]
 pub mod editor;
 
 pub type Px = f32;

@@ -22,5 +22,8 @@ shared_library = "*"
 winapi = "*"
 shared_library = "*"
 
+[features]
+ide = []
+
 [[bin]]
 name = "rid3"
