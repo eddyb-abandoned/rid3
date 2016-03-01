@@ -2,18 +2,24 @@ extern crate syntax;
 extern crate rustc;
 extern crate rustc_front;
 extern crate rustc_driver;
+extern crate rustc_metadata;
 extern crate rustc_resolve as resolve;
 extern crate rustc_typeck as typeck;
 
-use self::syntax::{codemap, diagnostic};
-pub use self::syntax::diagnostic::Level;
+use self::syntax::codemap::{CodeMap, MultiSpan};
+pub use self::syntax::errors::Level;
+use self::syntax::errors::{self, RenderSpan};
+use self::syntax::errors::emitter::Emitter;
+use self::syntax::parse::token;
 use self::rustc::front::map as hir_map;
 use self::rustc::front::map::NodePrinter;
 use self::rustc_front::lowering::{lower_crate, LoweringContext};
 use self::rustc_front::print::pprust;
 use self::rustc::session::{self, config};
-use self::rustc::metadata::creader::LocalCrateReader;
+use self::rustc_metadata::creader::LocalCrateReader;
+use self::rustc_metadata::cstore::CStore;
 use self::rustc::middle::{self, stability, ty};
+use self::rustc::dep_graph::DepGraph;
 use self::rustc_driver::driver;
 
 //use std::cell::RefCell;
@@ -22,6 +28,7 @@ use std::collections::HashMap;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::rc::Rc;
 use std::str;
 use std::sync::{Arc, Weak};
 use std::sync::mpsc::{channel, Sender, Receiver};
@@ -111,20 +118,20 @@ struct Diagnostic {
 
 struct ErrorLogger {
     tx: Sender<Res>,
+    codemap: Rc<CodeMap>,
     file_end: usize
 }
 
-impl diagnostic::Emitter for ErrorLogger {
-    fn emit(&mut self,
-            cmsp: Option<(&codemap::CodeMap, codemap::Span)>,
+impl Emitter for ErrorLogger {
+    fn emit(&mut self, span: Option<&MultiSpan>,
             msg: &str, _code: Option<&str>, lvl: Level) {
         if msg.starts_with("aborting due to ") {
             return;
         }
-        let (line, col) = match cmsp {
-            Some((codemap, sp)) => {
+        let (line, col) = match span.map(|s| s.to_span_bounds()) {
+            Some(sp) => {
                 if sp.hi.0 as usize <= self.file_end {
-                    let pos = codemap.lookup_char_pos(sp.lo);
+                    let pos = self.codemap.lookup_char_pos(sp.lo);
                     (pos.line - 1, pos.col.0)
                 } else {
                     (0, 0)
@@ -140,20 +147,23 @@ impl diagnostic::Emitter for ErrorLogger {
         }));
     }
 
-    fn custom_emit(&mut self, cm: &codemap::CodeMap,
-                   sp: diagnostic::RenderSpan, msg: &str, lvl: Level) {
-        let sp = match sp {
-            diagnostic::FullSpan(s) | diagnostic::FileLine(s) |
-            diagnostic::EndSpan(s) | diagnostic::Suggestion(s, _)  => s
+    fn custom_emit(&mut self, sp: &RenderSpan, msg: &str, lvl: Level) {
+        let msp = match *sp {
+            RenderSpan::FullSpan(ref msp) |
+            RenderSpan::FileLine(ref msp) |
+            RenderSpan::EndSpan(ref msp) => Some(msp),
+            RenderSpan::Suggestion(_) => None
         };
-        self.emit(Some((cm, sp)), msg, None, lvl);
+        self.emit(msp, msg, None, lvl);
     }
 }
 
-fn rustc_thread(input: String, mut lifeline: Arc<()>, rx: Receiver<Req>, tx: Sender<Res>, emitter: ErrorLogger) {
+fn rustc_thread(input: String, mut lifeline: Arc<()>,
+                rx: Receiver<Req>, tx: Sender<Res>,
+                file_end: usize) -> Result<(), usize> {
     macro_rules! still_alive {
         () => (lifeline = match Weak::upgrade(&Arc::downgrade(&{lifeline})) {
-                Some(x) => x, None => return
+                Some(x) => x, None => return Ok(())
         })
     }
     let input = config::Input::Str(input);
@@ -165,13 +175,20 @@ fn rustc_thread(input: String, mut lifeline: Arc<()>, rx: Receiver<Req>, tx: Sen
         ..config::basic_options().clone()
     };
 
-    let codemap = codemap::CodeMap::new();
-    let diagnostic_handler = diagnostic::Handler::with_emitter(true, Box::new(emitter));
-    let span_diagnostic_handler = diagnostic::SpanHandler::new(diagnostic_handler, codemap);
+    let codemap = Rc::new(CodeMap::new());
+    let emitter = Box::new(ErrorLogger {
+        tx: tx.clone(),
+        codemap: codemap.clone(),
+        file_end: file_end
+    });
+    let diagnostic_handler = errors::Handler::with_emitter(true, false, emitter);
 
+    let cstore = Rc::new(CStore::new(token::get_ident_interner()));
     let sess = session::build_session_(sessopts,
                                        None,
-                                       span_diagnostic_handler);
+                                       diagnostic_handler,
+                                       codemap,
+                                       cstore.clone());
 
     let cfg = config::build_configuration(&sess);
 
@@ -179,22 +196,22 @@ fn rustc_thread(input: String, mut lifeline: Arc<()>, rx: Receiver<Req>, tx: Sen
     let krate = driver::phase_1_parse_input(&sess, cfg, &input);
 
     still_alive!();
-    let krate = driver::phase_2_configure_and_expand(&sess, krate, "r3", None)
+    let krate = driver::phase_2_configure_and_expand(&sess, &cstore, krate, "r3", None)
         .expect("phase_2_configure_and_expand aborted");
 
     still_alive!();
     let krate = driver::assign_node_ids(&sess, krate);
 
     let lcx = LoweringContext::new(&sess, Some(&krate));
-    let mut hir_forest = hir_map::Forest::new(lower_crate(&lcx, &krate));
+    let dep_graph = DepGraph::new(false);
+    let mut hir_forest = hir_map::Forest::new(lower_crate(&lcx, &krate), dep_graph);
     let arenas = ty::CtxtArenas::new();
 
     still_alive!();
     let hir_map = hir_map::map_crate(&mut hir_forest);
-    let krate = hir_map.krate();
 
     still_alive!();
-    LocalCrateReader::new(&sess, &hir_map).read_crates(krate);
+    LocalCrateReader::new(&sess, &cstore, &hir_map).read_crates();
     let lang_items = middle::lang_items::collect_language_items(&sess, &hir_map);
 
     still_alive!();
@@ -211,16 +228,17 @@ fn rustc_thread(input: String, mut lifeline: Arc<()>, rx: Receiver<Req>, tx: Sen
     syntax::ext::mtwt::clear_tables();
 
     still_alive!();
-    let named_region_map = middle::resolve_lifetime::krate(&sess, krate, &def_map.borrow());
+    let named_region_map = try!(middle::resolve_lifetime::krate(&sess, &hir_map, &def_map.borrow()));
 
     still_alive!();
-    let region_map = middle::region::resolve_crate(&sess, krate);
+    let region_map = middle::region::resolve_crate(&sess, &hir_map);
 
     //middle::check_loop::check_crate(&sess, krate);
 
     //middle::check_static_recursion::check_crate(&sess, krate, &def_map, &hir_map);
 
     still_alive!();
+    let stability_idx = stability::Index::new(&hir_map);
     ty::ctxt::create_and_enter(&sess,
                                &arenas,
                                def_map,
@@ -229,7 +247,7 @@ fn rustc_thread(input: String, mut lifeline: Arc<()>, rx: Receiver<Req>, tx: Sen
                                freevars,
                                region_map,
                                lang_items,
-                               stability::Index::new(krate), |tcx| {
+                               stability_idx, |tcx| {
         /*typeck::collect::collect_item_types(tcx);
         tcx.sess.abort_if_errors();
 
@@ -243,7 +261,7 @@ fn rustc_thread(input: String, mut lifeline: Arc<()>, rx: Receiver<Req>, tx: Sen
             tcx: tcx
         };
         typeck::coherence::check_coherence(&ccx);*/
-        typeck::check_crate(tcx, trait_map);
+        try!(typeck::check_crate(tcx, trait_map));
 
         let _ = tx.send(Res::Done);
 
@@ -300,7 +318,9 @@ fn rustc_thread(input: String, mut lifeline: Arc<()>, rx: Receiver<Req>, tx: Sen
                 }
             }
         }
-    });
+
+        Ok(())
+    })
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -333,10 +353,7 @@ impl Rustc {
         thread::spawn(move || {
             let res_tx2 = res_tx.clone();
             let res = thread::catch_panic(move || {
-                rustc_thread(input, lifeline2, req_rx, res_tx.clone(), ErrorLogger {
-                    tx: res_tx,
-                    file_end: input_len
-                });
+                let _ = rustc_thread(input, lifeline2, req_rx, res_tx, input_len);
             });
             if res.is_err() {
                 let _ = res_tx2.send(Res::Aborted);

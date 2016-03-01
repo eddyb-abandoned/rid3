@@ -106,7 +106,7 @@ impl<T> Draw for Set<T> where T: Layout + Tab + Draw {
     }
 }
 
-trait SetDispatch<E> {
+pub trait SetDispatch<E> {
     fn dispatch(&mut self, _ev: &E) -> bool { false }
 }
 

@@ -1,4 +1,4 @@
-#![feature(drain, slice_patterns)]
+#![feature(slice_patterns)]
 
 extern crate glium;
 use glium::DisplayBuild;

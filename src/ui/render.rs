@@ -13,13 +13,13 @@ use ui::text::FontFaces;
 pub type Surface = glium::Frame;
 
 #[derive(Copy, Clone)]
-struct VertexXY {
+pub struct VertexXY {
     xy: [Px; 2]
 }
 implement_vertex!(VertexXY, xy);
 
 #[derive(Copy, Clone)]
-struct VertexUV {
+pub struct VertexUV {
     uv: [Px; 2]
 }
 implement_vertex!(VertexUV, uv);
@@ -330,7 +330,7 @@ pub trait Buffer: Sized {
     }
 }
 
-trait Sqrt {
+pub trait Sqrt {
     fn sqrt(self) -> Self;
 }
 
