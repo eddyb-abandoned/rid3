@@ -196,7 +196,7 @@ fn rustc_thread(input: String, mut lifeline: Arc<()>,
     let krate = driver::phase_1_parse_input(&sess, cfg, &input);
 
     still_alive!();
-    let krate = driver::phase_2_configure_and_expand(&sess, &cstore, krate, "r3", None)
+    let krate = driver::phase_2_configure_and_expand(&sess, &cstore, krate, "rid3", None)
         .expect("phase_2_configure_and_expand aborted");
 
     still_alive!();
