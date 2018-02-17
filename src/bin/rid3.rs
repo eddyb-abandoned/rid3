@@ -10,9 +10,9 @@ use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
 
 #[macro_use]
-extern crate r3;
-pub use r3::{cfg, ui};
-use r3::glyph::GlyphCache;
+extern crate rid3;
+pub use rid3::{cfg, ui};
+use rid3::glyph::GlyphCache;
 
 use ui::Px;
 use ui::color::Scheme;
@@ -26,7 +26,7 @@ fn main() { error__please_enable_the_ide_feature_for_rid3 }
 
 #[cfg(feature = "ide")]
 fn main() {
-    r3::ide::rustc::init_env();
+    rid3::ide::rustc::init_env();
 
     let display = glium::glutin::WindowBuilder::new()
         .with_dimensions(800, 600)
@@ -130,7 +130,7 @@ fn main() {
         if run_current.get() {
             root.kids.1.current().map(|e| {
                 println!("{}", std::iter::repeat('\n').take(200).collect::<String>());
-                r3::ide::rustc::compile_and_run(e.path());
+                rid3::ide::rustc::compile_and_run(e.path());
             });
             run_current.set(false);
         }
