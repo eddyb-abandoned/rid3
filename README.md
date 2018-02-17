@@ -1,5 +1,4 @@
-# r3
-## ridɛ
+# ridɛ
 Small "Rust IDE" demo I put together for my [senior project](assets/atestat.pdf) ("atestat" in Romanian) at the
 ["Tudor Vianu" High School of Computer Science](https://en.wikipedia.org/wiki/Tudor_Vianu_National_College_of_Computer_Science).
 The git tag `atestat-cnitv-2015` is almost identical to the submitted code.
